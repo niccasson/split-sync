@@ -7,23 +7,49 @@ import { FormInput } from '../components/FormInput';
 export const SignUpScreen = ({ navigation }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [fullName, setFullName] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
     const handleSignUp = async () => {
+        if (!fullName.trim()) {
+            setError('Full name is required');
+            return;
+        }
+
         try {
             setLoading(true);
             setError('');
 
-            const { error } = await supabase.auth.signUp({
+            // 1. Sign up the user with Supabase Auth
+            const { data: authData, error: authError } = await supabase.auth.signUp({
                 email,
                 password,
+                options: {
+                    data: {
+                        full_name: fullName,
+                    },
+                },
             });
 
-            if (error) throw error;
+            if (authError) throw authError;
 
-            // Show success message or navigate to verification screen
+            // 2. Add the user to our users table
+            const { error: dbError } = await supabase
+                .from('users')
+                .insert([
+                    {
+                        id: authData.user.id,
+                        email: email.toLowerCase(),
+                        full_name: fullName,
+                    }
+                ]);
+
+            if (dbError) throw dbError;
+
+            // Show success message
             alert('Please check your email for verification link');
+            navigation.navigate('Login');
         } catch (error) {
             setError(error.message);
         } finally {
@@ -36,6 +62,13 @@ export const SignUpScreen = ({ navigation }) => {
             <Text variant="headlineMedium" style={styles.title}>Create Account</Text>
 
             {error ? <Text style={styles.error}>{error}</Text> : null}
+
+            <FormInput
+                label="Full Name"
+                value={fullName}
+                onChangeText={setFullName}
+                autoCapitalize="words"
+            />
 
             <FormInput
                 label="Email"
