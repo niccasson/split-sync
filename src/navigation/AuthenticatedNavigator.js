@@ -24,6 +24,7 @@ export const AuthenticatedNavigator = () => {
                     paddingTop: 5,
                 },
             }}
+            initialRouteName="DashboardTab"
         >
             <Tab.Screen
                 name="DashboardTab"

@@ -12,17 +12,11 @@ export const useFriends = () => {
             const { data: { user } } = await supabase.auth.getUser();
             console.log('Current user ID:', user.id);
 
-            // First, let's see all friendships in the table
-            const { data: allFriendships, error: allFriendshipsError } = await supabase
-                .from('friendships')
-                .select('*');
-
-            console.log('All friendships in table:', allFriendships);
-
             if (!user) throw new Error('No user logged in');
 
-            // Fetch friends with their details and balances
-            const { data, error } = await supabase
+            // Fetch friends with their details
+            console.log('\n[QUERY] Fetching friendships from friendships table...');
+            const { data: friendships, error: friendshipsError } = await supabase
                 .from('friendships')
                 .select(`
                     id,
@@ -36,87 +30,119 @@ export const useFriends = () => {
                 .eq('user_id', user.id)
                 .eq('status', 'accepted');
 
-            console.log('Fetched friendships for current user:', {
-                userId: user.id,
-                friendships: data
-            });
+            console.log('[RESULT] Friendships:', JSON.stringify(friendships, null, 2));
 
-            if (error) {
-                console.error('Error fetching friendships:', error);
-                throw error;
+            if (friendshipsError) throw friendshipsError;
+
+            // Transform friendships data and add default zero balances
+            const transformedFriends = friendships.map(friendship => ({
+                id: friendship.friend.id,
+                name: friendship.friend.full_name,
+                email: friendship.friend.email,
+                balance: 0 // Default balance
+            }));
+
+            // Now fetch and calculate balances separately
+            for (const friend of transformedFriends) {
+                try {
+                    console.log(`\n[QUERY] Fetching expenses for friend ${friend.name} (${friend.id})...`);
+
+                    // Get expenses where user is creator
+                    console.log('\n[QUERY] Getting expenses where current user is creator...');
+                    const { data: userExpenses, error: userExpError } = await supabase
+                        .from('expenses')
+                        .select(`
+                            id,
+                            amount,
+                            expense_shares (
+                                id,
+                                amount,
+                                user_id
+                            )
+                        `)
+                        .eq('created_by', user.id);
+
+                    if (userExpError) {
+                        console.error('[ERROR] User expenses query failed:', userExpError);
+                    }
+
+                    if (!userExpenses || userExpenses.length === 0) {
+                        console.log('[INFO] No expenses found where current user is creator');
+                    } else {
+                        console.log('[RESULT] User created expenses:', JSON.stringify(userExpenses, null, 2));
+                    }
+
+                    // Get expenses where friend is creator
+                    console.log('\n[QUERY] Getting expenses where friend is creator...');
+                    const { data: friendExpenses, error: friendExpError } = await supabase
+                        .from('expenses')
+                        .select(`
+                            id,
+                            amount,
+                            expense_shares (
+                                id,
+                                amount,
+                                user_id
+                            )
+                        `)
+                        .eq('created_by', friend.id);
+
+                    if (friendExpError) {
+                        console.error('[ERROR] Friend expenses query failed:', friendExpError);
+                    }
+
+                    if (!friendExpenses || friendExpenses.length === 0) {
+                        console.log('[INFO] No expenses found where friend is creator');
+                    } else {
+                        console.log('[RESULT] Friend created expenses:', JSON.stringify(friendExpenses, null, 2));
+                    }
+
+                    // Calculate totals with empty array handling
+                    const totalOwed = (userExpenses || [])
+                        .reduce((sum, expense) => {
+                            if (!expense.expense_shares || expense.expense_shares.length === 0) {
+                                console.log(`[INFO] No shares found for expense ${expense.id}`);
+                                return sum;
+                            }
+                            const friendShare = expense.expense_shares
+                                ?.find(share => share.user_id === friend.id);
+                            console.log(`[DEBUG] Friend share in expense ${expense.id}:`, friendShare || 'No share found');
+                            return sum + (Number(friendShare?.amount) || 0);
+                        }, 0);
+
+                    const totalOwes = (friendExpenses || [])
+                        .reduce((sum, expense) => {
+                            if (!expense.expense_shares || expense.expense_shares.length === 0) {
+                                console.log(`[INFO] No shares found for expense ${expense.id}`);
+                                return sum;
+                            }
+                            const userShare = expense.expense_shares
+                                ?.find(share => share.user_id === user.id);
+                            console.log(`[DEBUG] User share in expense ${expense.id}:`, userShare || 'No share found');
+                            return sum + (Number(userShare?.amount) || 0);
+                        }, 0);
+
+                    console.log(`[INFO] Balance calculation for ${friend.name}:`, {
+                        totalOwed: totalOwed || 0,
+                        totalOwes: totalOwes || 0,
+                        netBalance: (totalOwed || 0) - (totalOwes || 0)
+                    });
+
+                    friend.balance = (totalOwed || 0) - (totalOwes || 0);
+
+                } catch (err) {
+                    console.error(`[ERROR] Error calculating balance for friend ${friend.id}:`, err);
+                    console.error('[ERROR] Error details:', err);
+                    friend.balance = 0; // Explicitly set to 0 on error
+                }
             }
 
-            // Guard against null or undefined data
-            if (!data || data.length === 0) {
-                console.log('No friendships found');
-                setFriends([]);
-                return;
-            }
-
-            // Calculate balances for each friend
-            const friendsWithBalances = await Promise.all(
-                data.filter(friendship => friendship.friend) // Filter out any null friends
-                    .map(async (friendship) => {
-                        console.log('Processing friendship:', friendship);
-
-                        try {
-                            // Get money owed to user by friend
-                            const { data: owedToUser } = await supabase
-                                .from('expense_shares')
-                                .select('amount')
-                                .eq('user_id', friendship.friend.id)
-                                .in('expense_id',
-                                    supabase
-                                        .from('expenses')
-                                        .select('id')
-                                        .eq('created_by', user.id)
-                                ) || { data: [] };
-
-                            // Get money user owes to friend
-                            const { data: userOwes } = await supabase
-                                .from('expense_shares')
-                                .select('amount')
-                                .eq('user_id', user.id)
-                                .in('expense_id',
-                                    supabase
-                                        .from('expenses')
-                                        .select('id')
-                                        .eq('created_by', friendship.friend.id)
-                                ) || { data: [] };
-
-                            // Default to empty arrays if no data
-                            const owedArray = Array.isArray(owedToUser) ? owedToUser : [];
-                            const owesArray = Array.isArray(userOwes) ? userOwes : [];
-
-                            const totalOwed = owedArray.reduce((sum, share) => sum + (Number(share?.amount) || 0), 0);
-                            const totalOwes = owesArray.reduce((sum, share) => sum + (Number(share?.amount) || 0), 0);
-                            const netBalance = totalOwed - totalOwes;
-
-                            return {
-                                id: friendship.friend.id,
-                                name: friendship.friend.full_name,
-                                email: friendship.friend.email,
-                                balance: netBalance
-                            };
-                        } catch (err) {
-                            console.error('Error processing friendship balances:', err);
-                            // Return friend with zero balance if there's an error
-                            return {
-                                id: friendship.friend.id,
-                                name: friendship.friend.full_name,
-                                email: friendship.friend.email,
-                                balance: 0
-                            };
-                        }
-                    })
-            );
-
-            console.log('Final friends with balances:', friendsWithBalances);
-            setFriends(friendsWithBalances);
+            console.log('\n[FINAL] Friends with balances:', JSON.stringify(transformedFriends, null, 2));
+            setFriends(transformedFriends);
         } catch (err) {
-            console.error('Error in fetchFriends:', err);
+            console.error('[ERROR] Error in fetchFriends:', err);
             setError(err.message);
-            setFriends([]); // Set empty array on error
+            setFriends([]);
         } finally {
             setLoading(false);
         }

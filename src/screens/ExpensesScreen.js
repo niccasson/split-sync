@@ -1,11 +1,326 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
+import React, { useState } from 'react';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { Text, Card, Button, FAB, TextInput, Portal, Modal, Chip, IconButton, ActivityIndicator, SegmentedButtons, Menu } from 'react-native-paper';
+import { useExpenses } from '../hooks/useExpenses';
+import { useGroups } from '../hooks/useGroups';
+import { useFriends } from '../hooks/useFriends';
 
 export const ExpensesScreen = () => {
+    const [createModalVisible, setCreateModalVisible] = useState(false);
+    const [title, setTitle] = useState('');
+    const [description, setDescription] = useState('');
+    const [amount, setAmount] = useState('');
+    const [selectedGroup, setSelectedGroup] = useState(null);
+    const [selectedFriends, setSelectedFriends] = useState([]);
+    const [splitType, setSplitType] = useState('equal'); // 'equal' or 'custom'
+    const [customAmounts, setCustomAmounts] = useState({});
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [filter, setFilter] = useState('all'); // 'all', 'group', 'personal'
+    const [menuVisible, setMenuVisible] = useState(false);
+
+    const { expenses, loading: expensesLoading, error: expensesError, createExpense, markShareAsPaid, deleteExpense } = useExpenses();
+    const { groups } = useGroups();
+    const { friends } = useFriends();
+
+    const handleCreateExpense = async () => {
+        if (!title.trim() || !amount || amount <= 0) {
+            setError('Title and valid amount are required');
+            return;
+        }
+
+        if (!selectedGroup && selectedFriends.length === 0) {
+            setError('Please select a group or friends to split with');
+            return;
+        }
+
+        try {
+            setLoading(true);
+            setError('');
+
+            const totalAmount = parseFloat(amount);
+            let shares = [];
+
+            if (selectedGroup) {
+                // Split among group members
+                const members = groups.find(g => g.id === selectedGroup)?.members || [];
+                const shareAmount = splitType === 'equal'
+                    ? totalAmount / (members.length + 1)
+                    : 0;
+
+                shares = members.map(member => ({
+                    userId: member.id,
+                    amount: splitType === 'equal' ? shareAmount : (customAmounts[member.id] || 0)
+                }));
+            } else {
+                // Split among selected friends
+                const shareAmount = splitType === 'equal'
+                    ? totalAmount / (selectedFriends.length + 1)
+                    : 0;
+
+                shares = selectedFriends.map(friendId => ({
+                    userId: friendId,
+                    amount: splitType === 'equal' ? shareAmount : (customAmounts[friendId] || 0)
+                }));
+            }
+
+            await createExpense({
+                title,
+                description,
+                totalAmount,
+                groupId: selectedGroup,
+                shares
+            });
+
+            setCreateModalVisible(false);
+            resetForm();
+        } catch (error) {
+            setError(error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const resetForm = () => {
+        setTitle('');
+        setDescription('');
+        setAmount('');
+        setSelectedGroup(null);
+        setSelectedFriends([]);
+        setSplitType('equal');
+        setCustomAmounts({});
+        setError('');
+    };
+
+    const filteredExpenses = expenses.filter(expense => {
+        if (filter === 'all') return true;
+        if (filter === 'group') return expense.groupId !== null;
+        return expense.groupId === null;
+    });
+
+    if (expensesLoading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" />
+            </View>
+        );
+    }
+
     return (
         <View style={styles.container}>
-            <Text variant="headlineMedium">Expenses</Text>
+            <ScrollView style={styles.scrollView}>
+                <View style={styles.header}>
+                    <Text variant="headlineMedium">Expenses</Text>
+                    <Menu
+                        visible={menuVisible}
+                        onDismiss={() => setMenuVisible(false)}
+                        anchor={
+                            <IconButton
+                                icon="filter-variant"
+                                onPress={() => setMenuVisible(true)}
+                            />
+                        }
+                    >
+                        <Menu.Item onPress={() => { setFilter('all'); setMenuVisible(false); }} title="All Expenses" />
+                        <Menu.Item onPress={() => { setFilter('group'); setMenuVisible(false); }} title="Group Expenses" />
+                        <Menu.Item onPress={() => { setFilter('personal'); setMenuVisible(false); }} title="Personal Expenses" />
+                    </Menu>
+                </View>
+
+                {expensesError ? (
+                    <Text style={styles.error}>{expensesError}</Text>
+                ) : null}
+
+                {filteredExpenses.map((expense) => (
+                    <Card key={expense.id} style={styles.expenseCard}>
+                        <Card.Content>
+                            <View style={styles.expenseHeader}>
+                                <View>
+                                    <Text variant="titleLarge">{expense.title}</Text>
+                                    {expense.groupName && (
+                                        <Text variant="bodySmall">Group: {expense.groupName}</Text>
+                                    )}
+                                </View>
+                                {expense.isOwner && (
+                                    <IconButton
+                                        icon="delete"
+                                        onPress={() => deleteExpense(expense.id)}
+                                    />
+                                )}
+                            </View>
+
+                            {expense.description && (
+                                <Text variant="bodyMedium">{expense.description}</Text>
+                            )}
+
+                            <Text variant="titleMedium" style={styles.amount}>
+                                Total: ${expense.totalAmount.toFixed(2)}
+                            </Text>
+
+                            <View style={styles.sharesContainer}>
+                                {expense.shares.map((share) => (
+                                    <Chip
+                                        key={share.id}
+                                        style={[
+                                            styles.shareChip,
+                                            share.paid && styles.paidChip
+                                        ]}
+                                        onPress={() => {
+                                            if (!share.paid && expense.isOwner) {
+                                                markShareAsPaid(share.id);
+                                            }
+                                        }}
+                                    >
+                                        {`${share.user.full_name}: $${share.amount.toFixed(2)} ${share.paid ? '(Paid)' : ''}`}
+                                    </Chip>
+                                ))}
+                            </View>
+                        </Card.Content>
+                    </Card>
+                ))}
+            </ScrollView>
+
+            {/* Create Expense Modal */}
+            <Portal>
+                <Modal
+                    visible={createModalVisible}
+                    onDismiss={() => {
+                        setCreateModalVisible(false);
+                        resetForm();
+                    }}
+                    contentContainerStyle={styles.modal}
+                >
+                    <ScrollView>
+                        <Text variant="titleLarge" style={styles.modalTitle}>Create Expense</Text>
+                        {error ? <Text style={styles.error}>{error}</Text> : null}
+
+                        <TextInput
+                            label="Title"
+                            value={title}
+                            onChangeText={setTitle}
+                            mode="outlined"
+                            style={styles.input}
+                        />
+
+                        <TextInput
+                            label="Description (optional)"
+                            value={description}
+                            onChangeText={setDescription}
+                            mode="outlined"
+                            style={styles.input}
+                            multiline
+                        />
+
+                        <TextInput
+                            label="Amount"
+                            value={amount}
+                            onChangeText={setAmount}
+                            mode="outlined"
+                            style={styles.input}
+                            keyboardType="decimal-pad"
+                        />
+
+                        <Text variant="titleMedium" style={styles.sectionTitle}>Split With</Text>
+
+                        {groups.length > 0 && (
+                            <View style={styles.groupSelection}>
+                                <Text variant="bodyMedium">Select Group (optional):</Text>
+                                {groups.map(group => (
+                                    <Chip
+                                        key={group.id}
+                                        selected={selectedGroup === group.id}
+                                        onPress={() => {
+                                            setSelectedGroup(selectedGroup === group.id ? null : group.id);
+                                            setSelectedFriends([]);
+                                        }}
+                                        style={styles.chip}
+                                    >
+                                        {group.name}
+                                    </Chip>
+                                ))}
+                            </View>
+                        )}
+
+                        {!selectedGroup && friends.length > 0 && (
+                            <View style={styles.friendSelection}>
+                                <Text variant="bodyMedium">Select Friends:</Text>
+                                {friends.map(friend => (
+                                    <Chip
+                                        key={friend.id}
+                                        selected={selectedFriends.includes(friend.id)}
+                                        onPress={() => {
+                                            setSelectedFriends(
+                                                selectedFriends.includes(friend.id)
+                                                    ? selectedFriends.filter(id => id !== friend.id)
+                                                    : [...selectedFriends, friend.id]
+                                            );
+                                        }}
+                                        style={styles.chip}
+                                    >
+                                        {friend.name}
+                                    </Chip>
+                                ))}
+                            </View>
+                        )}
+
+                        <SegmentedButtons
+                            value={splitType}
+                            onValueChange={setSplitType}
+                            buttons={[
+                                { value: 'equal', label: 'Split Equally' },
+                                { value: 'custom', label: 'Custom Split' }
+                            ]}
+                            style={styles.splitTypeButtons}
+                        />
+
+                        {splitType === 'custom' && (
+                            <View style={styles.customSplitContainer}>
+                                {(selectedGroup
+                                    ? groups.find(g => g.id === selectedGroup)?.members || []
+                                    : friends.filter(f => selectedFriends.includes(f.id))
+                                ).map(person => (
+                                    <TextInput
+                                        key={person.id}
+                                        label={`Amount for ${person.full_name || person.name}`}
+                                        value={customAmounts[person.id]?.toString() || ''}
+                                        onChangeText={(value) => setCustomAmounts({
+                                            ...customAmounts,
+                                            [person.id]: parseFloat(value) || 0
+                                        })}
+                                        mode="outlined"
+                                        style={styles.input}
+                                        keyboardType="decimal-pad"
+                                    />
+                                ))}
+                            </View>
+                        )}
+
+                        <Button
+                            mode="contained"
+                            onPress={handleCreateExpense}
+                            loading={loading}
+                            style={styles.modalButton}
+                        >
+                            Create Expense
+                        </Button>
+                        <Button
+                            onPress={() => {
+                                setCreateModalVisible(false);
+                                resetForm();
+                            }}
+                        >
+                            Cancel
+                        </Button>
+                    </ScrollView>
+                </Modal>
+            </Portal>
+
+            <FAB
+                icon="plus"
+                style={styles.fab}
+                onPress={() => setCreateModalVisible(true)}
+                label="Add Expense"
+            />
         </View>
     );
 };
@@ -13,6 +328,89 @@ export const ExpensesScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: '#f5f5f5',
+    },
+    scrollView: {
+        flex: 1,
         padding: 16,
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    expenseCard: {
+        marginBottom: 12,
+    },
+    expenseHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+    },
+    amount: {
+        marginTop: 8,
+    },
+    sharesContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        marginTop: 8,
+    },
+    shareChip: {
+        margin: 4,
+    },
+    paidChip: {
+        backgroundColor: '#4CAF50',
+    },
+    fab: {
+        position: 'absolute',
+        margin: 16,
+        right: 0,
+        bottom: 0,
+    },
+    modal: {
+        backgroundColor: 'white',
+        padding: 20,
+        margin: 20,
+        borderRadius: 8,
+        maxHeight: '80%',
+    },
+    modalTitle: {
+        marginBottom: 20,
+        textAlign: 'center',
+    },
+    input: {
+        marginBottom: 20,
+    },
+    sectionTitle: {
+        marginBottom: 12,
+    },
+    groupSelection: {
+        marginBottom: 20,
+    },
+    friendSelection: {
+        marginBottom: 20,
+    },
+    chip: {
+        margin: 4,
+    },
+    splitTypeButtons: {
+        marginBottom: 20,
+    },
+    customSplitContainer: {
+        marginBottom: 20,
+    },
+    modalButton: {
+        marginBottom: 12,
+    },
+    error: {
+        color: '#B00020',
+        marginBottom: 12,
+        textAlign: 'center',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 }); 
