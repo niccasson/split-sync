@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, Card, Button, FAB, TextInput, Portal, Modal, Avatar, ActivityIndicator } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { Text, Card, Button, FAB, TextInput, Portal, Modal, Avatar, Chip } from 'react-native-paper';
 import { useFriends } from '../hooks/useFriends';
+import { useAuth } from '../hooks/useAuth';
 
 export const FriendsScreen = () => {
+    const { isChecking } = useAuth();
     const [visible, setVisible] = useState(false);
     const [email, setEmail] = useState('');
     const [modalLoading, setModalLoading] = useState(false);
     const [modalError, setModalError] = useState('');
 
-    const { friends, loading, error, addFriend } = useFriends();
+    const { friends, loading: friendsLoading, error: friendsError, addFriend } = useFriends();
 
     const handleAddFriend = async () => {
         try {
@@ -31,7 +33,7 @@ export const FriendsScreen = () => {
         return '#757575'; // Grey for zero balance
     };
 
-    if (loading && !visible) {
+    if (isChecking || friendsLoading) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" />
@@ -44,8 +46,8 @@ export const FriendsScreen = () => {
             <ScrollView style={styles.scrollView}>
                 <Text variant="headlineMedium" style={styles.title}>Friends</Text>
 
-                {error ? (
-                    <Text style={styles.error}>{error}</Text>
+                {friendsError ? (
+                    <Text style={styles.error}>{friendsError}</Text>
                 ) : null}
 
                 {/* Friends List */}

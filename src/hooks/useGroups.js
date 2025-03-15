@@ -10,46 +10,72 @@ export const useGroups = () => {
         try {
             setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
-            console.log('Current user ID:', user.id);
+            console.log('Fetching groups for user:', user.id);
 
             if (!user) throw new Error('No user logged in');
 
-            // Fetch groups where user is a member
-            const { data, error } = await supabase
+            // 1. First get the user's group memberships
+            const { data: memberships, error: membershipError } = await supabase
                 .from('group_members')
-                .select(`
-                    group:group_id (
-                        id,
-                        name,
-                        created_by,
-                        created_at,
-                        members:group_members(
-                            user:user_id(
-                                id,
-                                full_name,
-                                email
-                            )
-                        )
-                    )
-                `)
+                .select('group_id')
                 .eq('user_id', user.id);
 
-            if (error) throw error;
+            if (membershipError) throw membershipError;
 
-            // Transform the data structure
-            const transformedGroups = data.map(({ group }) => ({
-                id: group.id,
-                name: group.name,
-                isOwner: group.created_by === user.id,
-                members: group.members.map(member => member.user),
-                created_at: group.created_at
-            }));
+            if (!memberships || memberships.length === 0) {
+                console.log('No group memberships found');
+                setGroups([]);
+                return;
+            }
 
-            console.log('Fetched groups:', transformedGroups);
+            // 2. Then get the group details
+            const groupIds = memberships.map(m => m.group_id);
+            const { data: groupsData, error: groupsError } = await supabase
+                .from('groups')
+                .select('id, name, created_by')
+                .in('id', groupIds);
+
+            if (groupsError) throw groupsError;
+
+            // 3. Finally get all members for these groups
+            const { data: allMembers, error: membersError } = await supabase
+                .from('group_members')
+                .select(`
+                    group_id,
+                    user:user_id (
+                        id,
+                        email,
+                        full_name
+                    )
+                `)
+                .in('group_id', groupIds);
+
+            if (membersError) throw membersError;
+
+            // Transform the data
+            const transformedGroups = groupsData.map(group => {
+                const groupMembers = allMembers
+                    .filter(m => m.group_id === group.id && m.user)
+                    .map(m => ({
+                        id: m.user.id,
+                        email: m.user.email,
+                        full_name: m.user.full_name
+                    }));
+
+                return {
+                    id: group.id,
+                    name: group.name,
+                    isOwner: group.created_by === user.id,
+                    members: groupMembers
+                };
+            });
+
+            console.log('Final transformed groups:', transformedGroups);
             setGroups(transformedGroups);
         } catch (err) {
             console.error('Error in fetchGroups:', err);
             setError(err.message);
+            setGroups([]);
         } finally {
             setLoading(false);
         }
@@ -162,15 +188,22 @@ export const useGroups = () => {
 
     const deleteGroup = async (groupId) => {
         try {
+            console.log('Starting delete operation for group:', groupId);
+
+            // Delete the group (members will be deleted automatically via CASCADE)
             const { error } = await supabase
                 .from('groups')
                 .delete()
                 .eq('id', groupId);
 
-            if (error) throw error;
+            if (error) {
+                console.error('Error deleting group:', error);
+                throw error;
+            }
 
             await fetchGroups();
         } catch (err) {
+            console.error('Error in deleteGroup:', err);
             throw err;
         }
     };

@@ -1,9 +1,19 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Button, Card, Text, useTheme, FAB } from 'react-native-paper';
+import { useAuth } from '../hooks/useAuth';
 
 export const DashboardScreen = ({ navigation }) => {
+    const { isChecking } = useAuth();
     const theme = useTheme();
+
+    if (isChecking) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" />
+            </View>
+        );
+    }
 
     // Dummy data for demonstration
     const balanceSummary = {
@@ -165,5 +175,10 @@ const styles = StyleSheet.create({
         margin: 16,
         right: 0,
         bottom: 0,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 }); 

@@ -10,28 +10,66 @@ export const useExpenses = () => {
         try {
             setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
-            console.log('\n[FETCH] Current user ID:', user.id);
 
             if (!user) throw new Error('No user logged in');
 
-            const queryString = `
-                id,
-                title,
-                description,
-                amount,
-                created_at,
-                created_by,
-                group:group_id (
+            // 1. Get expenses created by user
+            const { data: createdExpenses, error: createdError } = await supabase
+                .from('expenses')
+                .select('id')
+                .eq('created_by', user.id);
+
+            if (createdError) throw createdError;
+
+            // 2. Get expenses shared with user
+            const { data: sharedExpenses, error: sharedError } = await supabase
+                .from('expense_shares')
+                .select('expense_id')
+                .eq('user_id', user.id);
+
+            if (sharedError) throw sharedError;
+
+            // Combine all expense IDs
+            const expenseIds = [
+                ...(createdExpenses || []).map(e => e.id),
+                ...(sharedExpenses || []).map(e => e.expense_id)
+            ];
+
+            if (expenseIds.length === 0) {
+                setExpenses([]);
+                return;
+            }
+
+            // 3. Get full expense details
+            const { data: expensesData, error: expensesError } = await supabase
+                .from('expenses')
+                .select(`
                     id,
-                    name
-                ),
-                creator:created_by (
+                    title,
+                    description,
+                    amount,
+                    created_at,
+                    created_by,
+                    group:group_id (
+                        id,
+                        name
+                    ),
+                    creator:created_by (
+                        id,
+                        full_name,
+                        email
+                    )
+                `)
+                .in('id', expenseIds);
+
+            if (expensesError) throw expensesError;
+
+            // 4. Get all shares for these expenses
+            const { data: allShares, error: sharesError } = await supabase
+                .from('expense_shares')
+                .select(`
                     id,
-                    full_name,
-                    email
-                ),
-                shares:expense_shares (
-                    id,
+                    expense_id,
                     amount,
                     paid,
                     user:user_id (
@@ -39,62 +77,39 @@ export const useExpenses = () => {
                         full_name,
                         email
                     )
-                )
-            `;
+                `)
+                .in('expense_id', expenseIds);
 
-            console.log('[QUERY] Fetching expenses created by user...');
-            const { data: createdExpenses, error: createdError } = await supabase
-                .from('expenses')
-                .select(queryString)
-                .eq('created_by', user.id);
+            if (sharesError) throw sharesError;
 
-            if (createdError) {
-                console.error('[ERROR] Failed to fetch created expenses:', createdError);
-                throw createdError;
-            }
-            console.log('[RESULT] Created expenses:', JSON.stringify(createdExpenses, null, 2));
+            // Transform the data
+            const transformedExpenses = expensesData.map(expense => {
+                const expenseShares = allShares
+                    .filter(share => share.expense_id === expense.id)
+                    .map(share => ({
+                        id: share.id,
+                        amount: share.amount,
+                        paid: share.paid,
+                        user: share.user
+                    }));
 
-            console.log('[QUERY] Fetching expenses where user is participant...');
-            const { data: participatingExpenses, error: participatingError } = await supabase
-                .from('expenses')
-                .select(queryString)
-                .eq('shares.user_id', user.id);
+                return {
+                    id: expense.id,
+                    title: expense.title,
+                    description: expense.description,
+                    totalAmount: expense.amount,
+                    groupId: expense.group?.id,
+                    groupName: expense.group?.name,
+                    createdAt: expense.created_at,
+                    creator: expense.creator,
+                    isOwner: expense.created_by === user.id,
+                    shares: expenseShares,
+                    userShare: expenseShares.find(share => share.user.id === user.id)
+                };
+            });
 
-            if (participatingError) {
-                console.error('[ERROR] Failed to fetch participating expenses:', participatingError);
-                throw participatingError;
-            }
-            console.log('[RESULT] Participating expenses:', JSON.stringify(participatingExpenses, null, 2));
-
-            // Combine and deduplicate results
-            const allExpenses = [...(createdExpenses || []), ...(participatingExpenses || [])];
-            const uniqueExpenses = Array.from(new Map(allExpenses.map(item => [item.id, item])).values());
-            console.log('[INFO] Combined unique expenses:', JSON.stringify(uniqueExpenses, null, 2));
-
-            // Transform the data structure
-            const transformedExpenses = uniqueExpenses.map(expense => ({
-                id: expense.id,
-                title: expense.title,
-                description: expense.description,
-                totalAmount: expense.amount,
-                groupId: expense.group?.id,
-                groupName: expense.group?.name,
-                createdAt: expense.created_at,
-                creator: expense.creator,
-                isOwner: expense.created_by === user.id,
-                shares: expense.shares.map(share => ({
-                    id: share.id,
-                    amount: share.amount,
-                    paid: share.paid,
-                    user: share.user
-                })),
-                userShare: expense.shares.find(share => share.user.id === user.id)
-            }));
-
-            console.log('[INFO] Transformed expenses:', JSON.stringify(transformedExpenses, null, 2));
             setExpenses(transformedExpenses);
         } catch (err) {
-            console.error('[ERROR] Error in fetchExpenses:', err);
             setError(err.message);
             setExpenses([]);
         } finally {
@@ -106,19 +121,8 @@ export const useExpenses = () => {
         try {
             setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
-            console.log('\n[CREATE EXPENSE] Starting expense creation...');
-            console.log('[DEBUG] Expense data received:', JSON.stringify(expenseData, null, 2));
 
             if (!user) throw new Error('No user logged in');
-
-            // Create the expense
-            console.log('\n[QUERY] Inserting into expenses table:', {
-                title: expenseData.title,
-                description: expenseData.description,
-                amount: expenseData.totalAmount,
-                group_id: expenseData.groupId,
-                created_by: user.id
-            });
 
             const { data: expense, error: expenseError } = await supabase
                 .from('expenses')
@@ -132,13 +136,8 @@ export const useExpenses = () => {
                 .select()
                 .single();
 
-            if (expenseError) {
-                console.error('[ERROR] Failed to create expense:', expenseError);
-                throw expenseError;
-            }
-            console.log('[SUCCESS] Created expense:', JSON.stringify(expense, null, 2));
+            if (expenseError) throw expenseError;
 
-            // Create expense shares
             const shares = expenseData.shares.map(share => ({
                 expense_id: expense.id,
                 user_id: share.userId,
@@ -146,23 +145,14 @@ export const useExpenses = () => {
                 paid: false
             }));
 
-            console.log('\n[QUERY] Inserting expense shares:', JSON.stringify(shares, null, 2));
-
-            const { data: shareData, error: sharesError } = await supabase
+            const { error: sharesError } = await supabase
                 .from('expense_shares')
-                .insert(shares)
-                .select();
+                .insert(shares);
 
-            if (sharesError) {
-                console.error('[ERROR] Failed to create expense shares:', sharesError);
-                throw sharesError;
-            }
-            console.log('[SUCCESS] Created expense shares:', JSON.stringify(shareData, null, 2));
+            if (sharesError) throw sharesError;
 
             await fetchExpenses();
-            console.log('[INFO] Expense creation completed successfully');
         } catch (err) {
-            console.error('[ERROR] Error in createExpense:', err);
             throw err;
         } finally {
             setLoading(false);
@@ -186,12 +176,12 @@ export const useExpenses = () => {
 
     const deleteExpense = async (expenseId) => {
         try {
-            const { error } = await supabase
+            const { error: expenseError } = await supabase
                 .from('expenses')
                 .delete()
                 .eq('id', expenseId);
 
-            if (error) throw error;
+            if (expenseError) throw expenseError;
 
             await fetchExpenses();
         } catch (err) {

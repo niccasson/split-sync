@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Card, Button, FAB, TextInput, Portal, Modal, List, Chip, IconButton, ActivityIndicator } from 'react-native-paper';
 import { useGroups } from '../hooks/useGroups';
+import { useAuth } from '../hooks/useAuth';
 
 export const GroupsScreen = () => {
+    useAuth();
     const [createModalVisible, setCreateModalVisible] = useState(false);
     const [addMemberModalVisible, setAddMemberModalVisible] = useState(false);
     const [selectedGroup, setSelectedGroup] = useState(null);

@@ -7,6 +7,7 @@ import { DashboardScreen } from '../screens/DashboardScreen';
 import { FriendsScreen } from '../screens/FriendsScreen';
 import { GroupsScreen } from '../screens/GroupsScreen';
 import { ExpensesScreen } from '../screens/ExpensesScreen';
+import { AccountScreen } from '../screens/AccountScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -63,6 +64,16 @@ export const AuthenticatedNavigator = () => {
                     tabBarLabel: 'Expenses',
                     tabBarIcon: ({ color, size }) => (
                         <Icon name="currency-usd" size={size} color={color} />
+                    ),
+                }}
+            />
+            <Tab.Screen
+                name="AccountTab"
+                component={AccountScreen}
+                options={{
+                    title: 'Account',
+                    tabBarIcon: ({ color, size }) => (
+                        <Icon name="account" size={size} color={color} />
                     ),
                 }}
             />
