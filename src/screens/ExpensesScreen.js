@@ -4,8 +4,10 @@ import { Text, Card, Button, FAB, TextInput, Portal, Modal, Chip, IconButton, Ac
 import { useExpenses } from '../hooks/useExpenses';
 import { useGroups } from '../hooks/useGroups';
 import { useFriends } from '../hooks/useFriends';
+import { useAuth } from '../hooks/useAuth';
 
 export const ExpensesScreen = () => {
+    useAuth();
     const [createModalVisible, setCreateModalVisible] = useState(false);
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -44,24 +46,44 @@ export const ExpensesScreen = () => {
             if (selectedGroup) {
                 // Split among group members
                 const members = groups.find(g => g.id === selectedGroup)?.members || [];
+                console.log('Group split calculation:', {
+                    totalAmount,
+                    numberOfMembers: members.length,
+                    members: members.map(m => m.full_name)
+                });
+
                 const shareAmount = splitType === 'equal'
-                    ? totalAmount / (members.length + 1)
+                    ? totalAmount / members.length
                     : 0;
+
+                console.log('Share amount per member:', shareAmount);
 
                 shares = members.map(member => ({
                     userId: member.id,
                     amount: splitType === 'equal' ? shareAmount : (customAmounts[member.id] || 0)
                 }));
+
+                console.log('Final shares:', shares);
             } else {
                 // Split among selected friends
+                console.log('Friend split calculation:', {
+                    totalAmount,
+                    numberOfFriends: selectedFriends.length,
+                    selectedFriends
+                });
+
                 const shareAmount = splitType === 'equal'
-                    ? totalAmount / (selectedFriends.length + 1)
+                    ? totalAmount / selectedFriends.length
                     : 0;
+
+                console.log('Share amount per friend:', shareAmount);
 
                 shares = selectedFriends.map(friendId => ({
                     userId: friendId,
                     amount: splitType === 'equal' ? shareAmount : (customAmounts[friendId] || 0)
                 }));
+
+                console.log('Final shares:', shares);
             }
 
             await createExpense({
@@ -90,6 +112,19 @@ export const ExpensesScreen = () => {
         setSplitType('equal');
         setCustomAmounts({});
         setError('');
+    };
+
+    const handleDeleteExpense = async (expenseId) => {
+        try {
+            console.log('Delete button clicked for expense:', expenseId);
+            setLoading(true);
+            await deleteExpense(expenseId);
+            console.log('Delete operation completed for expense:', expenseId);
+        } catch (err) {
+            console.error('Error in handleDeleteExpense:', err);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const filteredExpenses = expenses.filter(expense => {
@@ -136,22 +171,18 @@ export const ExpensesScreen = () => {
                         <Card.Content>
                             <View style={styles.expenseHeader}>
                                 <View>
-                                    <Text variant="titleLarge">{expense.title}</Text>
-                                    {expense.groupName && (
-                                        <Text variant="bodySmall">Group: {expense.groupName}</Text>
+                                    <Text variant="titleMedium">{expense.title}</Text>
+                                    {expense.description && (
+                                        <Text variant="bodyMedium">{expense.description}</Text>
                                     )}
                                 </View>
                                 {expense.isOwner && (
                                     <IconButton
                                         icon="delete"
-                                        onPress={() => deleteExpense(expense.id)}
+                                        onPress={() => handleDeleteExpense(expense.id)}
                                     />
                                 )}
                             </View>
-
-                            {expense.description && (
-                                <Text variant="bodyMedium">{expense.description}</Text>
-                            )}
 
                             <Text variant="titleMedium" style={styles.amount}>
                                 Total: ${expense.totalAmount.toFixed(2)}
