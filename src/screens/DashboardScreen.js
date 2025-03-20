@@ -1,11 +1,57 @@
-import React from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Button, Card, Text, useTheme, FAB } from 'react-native-paper';
 import { useAuth } from '../hooks/useAuth';
+import { useFriends } from '../hooks/useFriends';
+import { useExpenses } from '../hooks/useExpenses';
 
 export const DashboardScreen = ({ navigation }) => {
     const { isChecking } = useAuth();
+    const { friends, refreshFriends } = useFriends();
+    const { expenses, refreshExpenses } = useExpenses();
     const theme = useTheme();
+
+    // Add navigation listener for focus events
+    useEffect(() => {
+        const unsubscribe = navigation.addListener('focus', () => {
+            refreshFriends();
+            refreshExpenses();
+        });
+
+        // Cleanup subscription on unmount
+        return unsubscribe;
+    }, [navigation, refreshFriends, refreshExpenses]);
+
+    const balanceSummary = useMemo(() => {
+        let totalOwed = 0;
+        let totalOwing = 0;
+
+        friends.forEach(friend => {
+            if (friend.balance > 0) {
+                totalOwed += friend.balance;
+            } else {
+                totalOwing += Math.abs(friend.balance);
+            }
+        });
+
+        return {
+            totalOwed,
+            totalOwing,
+            netBalance: totalOwed - totalOwing
+        };
+    }, [friends]);
+
+    const recentActivity = useMemo(() => {
+        return expenses
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+            .slice(0, 5)
+            .map(expense => ({
+                id: expense.id,
+                title: expense.title,
+                amount: expense.totalAmount,
+                group: expense.groupName || 'Personal'
+            }));
+    }, [expenses]);
 
     if (isChecking) {
         return (
@@ -14,19 +60,6 @@ export const DashboardScreen = ({ navigation }) => {
             </View>
         );
     }
-
-    // Dummy data for demonstration
-    const balanceSummary = {
-        totalOwed: 150.00,
-        totalOwing: 75.50,
-        netBalance: 74.50
-    };
-
-    const recentActivity = [
-        { id: 1, title: 'Dinner at Restaurant', amount: 45.00, group: 'Friends Night Out' },
-        { id: 2, title: 'Groceries', amount: 30.50, group: 'Roommates' },
-        { id: 3, title: 'Movie Tickets', amount: 24.00, group: 'Weekend Plans' },
-    ];
 
     return (
         <View style={styles.container}>
@@ -39,13 +72,13 @@ export const DashboardScreen = ({ navigation }) => {
                             <View style={styles.balanceItem}>
                                 <Text variant="labelLarge">You are owed</Text>
                                 <Text variant="headlineSmall" style={{ color: theme.colors.success }}>
-                                    ${balanceSummary.totalOwed}
+                                    ${balanceSummary.totalOwed.toFixed(2)}
                                 </Text>
                             </View>
                             <View style={styles.balanceItem}>
                                 <Text variant="labelLarge">You owe</Text>
                                 <Text variant="headlineSmall" style={{ color: theme.colors.error }}>
-                                    ${balanceSummary.totalOwing}
+                                    ${balanceSummary.totalOwing.toFixed(2)}
                                 </Text>
                             </View>
                         </View>
@@ -59,7 +92,7 @@ export const DashboardScreen = ({ navigation }) => {
                                         : theme.colors.error
                                 }}
                             >
-                                ${Math.abs(balanceSummary.netBalance)}
+                                ${Math.abs(balanceSummary.netBalance).toFixed(2)}
                             </Text>
                         </View>
                     </Card.Content>
@@ -73,7 +106,7 @@ export const DashboardScreen = ({ navigation }) => {
                             mode="contained-tonal"
                             icon="account-plus"
                             style={styles.actionButton}
-                            onPress={() => navigation.navigate('AddFriend')}
+                            onPress={() => navigation.navigate('FriendsTab')}
                         >
                             Add Friend
                         </Button>
@@ -81,7 +114,7 @@ export const DashboardScreen = ({ navigation }) => {
                             mode="contained-tonal"
                             icon="account-group"
                             style={styles.actionButton}
-                            onPress={() => navigation.navigate('CreateGroup')}
+                            onPress={() => navigation.navigate('GroupsTab')}
                         >
                             New Group
                         </Button>
@@ -92,15 +125,21 @@ export const DashboardScreen = ({ navigation }) => {
                 <Card style={styles.recentActivityCard}>
                     <Card.Content>
                         <Text variant="titleLarge" style={styles.cardTitle}>Recent Activity</Text>
-                        {recentActivity.map((activity) => (
-                            <View key={activity.id} style={styles.activityItem}>
-                                <View>
-                                    <Text variant="titleMedium">{activity.title}</Text>
-                                    <Text variant="bodySmall">{activity.group}</Text>
+                        {recentActivity.length > 0 ? (
+                            recentActivity.map((activity) => (
+                                <View key={activity.id} style={styles.activityItem}>
+                                    <View>
+                                        <Text variant="titleMedium">{activity.title}</Text>
+                                        <Text variant="bodySmall">{activity.group}</Text>
+                                    </View>
+                                    <Text variant="titleMedium">${activity.amount.toFixed(2)}</Text>
                                 </View>
-                                <Text variant="titleMedium">${activity.amount}</Text>
-                            </View>
-                        ))}
+                            ))
+                        ) : (
+                            <Text variant="bodyMedium" style={styles.noActivity}>
+                                No recent activity
+                            </Text>
+                        )}
                     </Card.Content>
                 </Card>
             </ScrollView>
@@ -110,7 +149,7 @@ export const DashboardScreen = ({ navigation }) => {
                 icon="plus"
                 label="Add Expense"
                 style={styles.fab}
-                onPress={() => navigation.navigate('AddExpense')}
+                onPress={() => navigation.navigate('ExpensesTab')}
             />
         </View>
     );
@@ -180,5 +219,9 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    noActivity: {
+        textAlign: 'center',
+        color: '#888',
     },
 }); 
