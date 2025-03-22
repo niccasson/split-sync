@@ -30,13 +30,18 @@ export const AccountScreen = () => {
 
     return (
         <View style={styles.container}>
+            <View style={styles.header}>
+                <Text variant="headlineMedium" style={styles.headerText}>Account</Text>
+            </View>
+
             <Card style={styles.card}>
-                <Card.Content>
-                    <Text variant="titleLarge" style={styles.title}>Account Settings</Text>
+                <Card.Content style={styles.cardContent}>
                     <Button
                         mode="contained"
                         onPress={handleSignOut}
                         style={styles.button}
+                        contentStyle={styles.buttonContent}
+                        labelStyle={styles.buttonLabel}
                     >
                         Sign Out
                     </Button>
@@ -49,17 +54,41 @@ export const AccountScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 16,
-        backgroundColor: '#f5f5f5',
+        backgroundColor: '#42B095',
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+        paddingHorizontal: 16,
+        paddingTop: 8,
+    },
+    headerText: {
+        color: '#FFFFFF',
+        fontSize: 24,
+        fontWeight: '600',
     },
     card: {
-        marginBottom: 16,
+        marginHorizontal: 16,
+        backgroundColor: '#FFFFFF',
+        elevation: 2,
+        borderRadius: 12,
     },
-    title: {
-        marginBottom: 16,
-        textAlign: 'center',
+    cardContent: {
+        padding: 16,
     },
     button: {
-        marginTop: 8,
+        marginVertical: 8,
+        backgroundColor: '#757575',
+        borderRadius: 8,
+        width: '100%',
+    },
+    buttonContent: {
+        height: 48,
+    },
+    buttonLabel: {
+        fontSize: 16,
+        fontWeight: '600',
     },
 }); 

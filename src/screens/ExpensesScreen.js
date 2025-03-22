@@ -362,7 +362,7 @@ export const ExpensesScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#42B095', // Keeping the mint green background
+        backgroundColor: '#42B095',
     },
     scrollView: {
         flex: 1,
@@ -380,6 +380,7 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontSize: 24,
         fontWeight: '600',
+        marginBottom: 20,
     },
     expenseCard: {
         marginBottom: 12,
@@ -393,16 +394,19 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
     },
     expenseTitle: {
-        color: '#424242', // Dark grey for text
-        fontWeight: '600',
+        fontSize: 18,
+        fontWeight: '400',
+        color: '#424242',
     },
     expenseDescription: {
-        color: 'rgba(66, 66, 66, 0.8)', // Semi-transparent dark grey
+        fontSize: 14,
+        color: '#424242',
+        opacity: 0.8,
     },
     amount: {
-        color: '#424242', // Dark grey
-        marginTop: 8,
+        fontSize: 16,
         fontWeight: '600',
+        color: '#424242',
     },
     sharesContainer: {
         flexDirection: 'row',

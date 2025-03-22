@@ -18,7 +18,7 @@ export const AuthenticatedNavigator = () => {
         <Tab.Navigator
             screenOptions={{
                 headerShown: false,
-                tabBarActiveTintColor: theme.colors.primary,
+                tabBarActiveTintColor: '#42B095',
                 tabBarInactiveTintColor: theme.colors.backdrop,
                 tabBarStyle: {
                     paddingBottom: 5,
