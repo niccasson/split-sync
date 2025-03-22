@@ -145,13 +145,14 @@ export const ExpensesScreen = () => {
         <View style={styles.container}>
             <ScrollView style={styles.scrollView}>
                 <View style={styles.header}>
-                    <Text variant="headlineMedium">Expenses</Text>
+                    <Text variant="headlineMedium" style={styles.headerText}>Expenses</Text>
                     <Menu
                         visible={menuVisible}
                         onDismiss={() => setMenuVisible(false)}
                         anchor={
                             <IconButton
                                 icon="filter-variant"
+                                iconColor="white"
                                 onPress={() => setMenuVisible(true)}
                             />
                         }
@@ -171,14 +172,15 @@ export const ExpensesScreen = () => {
                         <Card.Content>
                             <View style={styles.expenseHeader}>
                                 <View>
-                                    <Text variant="titleMedium">{expense.title}</Text>
+                                    <Text variant="titleMedium" style={styles.expenseTitle}>{expense.title}</Text>
                                     {expense.description && (
-                                        <Text variant="bodyMedium">{expense.description}</Text>
+                                        <Text variant="bodyMedium" style={styles.expenseDescription}>{expense.description}</Text>
                                     )}
                                 </View>
                                 {expense.isOwner && (
                                     <IconButton
                                         icon="delete"
+                                        iconColor="#424242"
                                         onPress={() => handleDeleteExpense(expense.id)}
                                     />
                                 )}
@@ -351,6 +353,7 @@ export const ExpensesScreen = () => {
                 style={styles.fab}
                 onPress={() => setCreateModalVisible(true)}
                 label="Add Expense"
+                color="white"
             />
         </View>
     );
@@ -359,7 +362,7 @@ export const ExpensesScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f5f5f5',
+        backgroundColor: '#42B095', // Keeping the mint green background
     },
     scrollView: {
         flex: 1,
@@ -370,17 +373,36 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 20,
+        paddingHorizontal: 16,
+        paddingTop: 8,
+    },
+    headerText: {
+        color: '#FFFFFF',
+        fontSize: 24,
+        fontWeight: '600',
     },
     expenseCard: {
         marginBottom: 12,
+        backgroundColor: '#FFFFFF',
+        elevation: 2,
+        borderRadius: 12,
     },
     expenseHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
     },
+    expenseTitle: {
+        color: '#424242', // Dark grey for text
+        fontWeight: '600',
+    },
+    expenseDescription: {
+        color: 'rgba(66, 66, 66, 0.8)', // Semi-transparent dark grey
+    },
     amount: {
+        color: '#424242', // Dark grey
         marginTop: 8,
+        fontWeight: '600',
     },
     sharesContainer: {
         flexDirection: 'row',
@@ -389,15 +411,20 @@ const styles = StyleSheet.create({
     },
     shareChip: {
         margin: 4,
+        backgroundColor: '#E8F5E9', // Light green background for chips
     },
     paidChip: {
         backgroundColor: '#4CAF50',
+    },
+    chipText: {
+        color: '#424242', // Dark grey text
     },
     fab: {
         position: 'absolute',
         margin: 16,
         right: 0,
         bottom: 0,
+        backgroundColor: '#42B095', // Changed to match container background color
     },
     modal: {
         backgroundColor: 'white',
