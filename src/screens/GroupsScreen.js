@@ -84,7 +84,7 @@ export const GroupsScreen = () => {
     return (
         <View style={styles.container}>
             <ScrollView style={styles.scrollView}>
-                <Text variant="headlineMedium" style={styles.title}>Groups</Text>
+                <Text variant="headlineMedium" style={styles.headerText}>Groups</Text>
 
                 {groupsError ? (
                     <Text style={styles.error}>{groupsError}</Text>
@@ -94,15 +94,16 @@ export const GroupsScreen = () => {
                     <Card key={group.id} style={styles.groupCard}>
                         <Card.Content>
                             <View style={styles.groupHeader}>
-                                <Text variant="titleLarge">{group.name}</Text>
+                                <Text variant="titleLarge" style={styles.groupTitle}>{group.name}</Text>
                                 {group.isOwner && (
                                     <IconButton
                                         icon="delete"
+                                        iconColor="#424242"
                                         onPress={() => handleDeleteGroup(group.id)}
                                     />
                                 )}
                             </View>
-                            <Text variant="bodySmall">
+                            <Text variant="bodySmall" style={styles.memberCount}>
                                 {group.members.length} {group.members.length === 1 ? 'member' : 'members'}
                             </Text>
                             <View style={styles.membersContainer}>
@@ -110,6 +111,7 @@ export const GroupsScreen = () => {
                                     <Chip
                                         key={member.id}
                                         style={styles.memberChip}
+                                        textStyle={styles.memberChipText}
                                         onClose={group.isOwner ? () => handleRemoveMember(group.id, member.id) : undefined}
                                     >
                                         {member.full_name}
@@ -124,6 +126,8 @@ export const GroupsScreen = () => {
                                         setAddMemberModalVisible(true);
                                     }}
                                     style={styles.addMemberButton}
+                                    textColor="#424242"
+                                    buttonColor="#F5F5F5"
                                 >
                                     Add Member
                                 </Button>
@@ -149,6 +153,8 @@ export const GroupsScreen = () => {
                         onChangeText={setGroupName}
                         mode="outlined"
                         style={styles.input}
+                        outlineColor="#424242"
+                        activeOutlineColor="#42B095"
                     />
 
                     <TextInput
@@ -157,12 +163,8 @@ export const GroupsScreen = () => {
                         onChangeText={setMemberEmail}
                         mode="outlined"
                         style={styles.input}
-                        onSubmitEditing={() => {
-                            if (memberEmail) {
-                                setMemberEmails([...memberEmails, memberEmail]);
-                                setMemberEmail('');
-                            }
-                        }}
+                        outlineColor="#424242"
+                        activeOutlineColor="#42B095"
                     />
 
                     <View style={styles.emailChips}>
@@ -182,11 +184,14 @@ export const GroupsScreen = () => {
                         onPress={handleCreateGroup}
                         loading={loading}
                         style={styles.modalButton}
+                        buttonColor="#42B095"
+                        textColor="white"
                     >
                         Create Group
                     </Button>
                     <Button
                         onPress={() => setCreateModalVisible(false)}
+                        textColor="#424242"
                     >
                         Cancel
                     </Button>
@@ -241,6 +246,7 @@ export const GroupsScreen = () => {
                 style={styles.fab}
                 onPress={() => setCreateModalVisible(true)}
                 label="Create Group"
+                color="white"
             />
         </View>
     );
@@ -249,22 +255,34 @@ export const GroupsScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f5f5f5',
+        backgroundColor: '#42B095', // Mint green background
     },
     scrollView: {
         flex: 1,
         padding: 16,
     },
-    title: {
+    headerText: {
+        color: '#FFFFFF',
+        fontSize: 24,
+        fontWeight: '600',
         marginBottom: 20,
     },
     groupCard: {
         marginBottom: 12,
+        backgroundColor: '#FFFFFF',
+        elevation: 2,
+        borderRadius: 12,
     },
     groupHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+    },
+    groupTitle: {
+        color: '#424242', // Dark grey
+    },
+    memberCount: {
+        color: '#424242', // Dark grey
     },
     membersContainer: {
         flexDirection: 'row',
@@ -273,25 +291,36 @@ const styles = StyleSheet.create({
     },
     memberChip: {
         margin: 4,
+        backgroundColor: '#E8F5E9', // Light green background for member chips
+    },
+    memberChipText: {
+        color: '#424242', // Dark grey text
     },
     addMemberButton: {
         marginTop: 8,
+        borderColor: '#424242',
+        backgroundColor: '#F5F5F5',
     },
     fab: {
         position: 'absolute',
         margin: 16,
         right: 0,
         bottom: 0,
+        backgroundColor: '#42B095', // Mint green
     },
     modal: {
         backgroundColor: 'white',
         padding: 20,
         margin: 20,
-        borderRadius: 8,
+        borderRadius: 12,
+        elevation: 2,
     },
     modalTitle: {
         marginBottom: 20,
         textAlign: 'center',
+        color: '#424242',
+        fontSize: 20,
+        fontWeight: '600',
     },
     input: {
         marginBottom: 20,
@@ -311,6 +340,7 @@ const styles = StyleSheet.create({
     },
     chip: {
         margin: 4,
+        backgroundColor: '#E8F5E9',
     },
     loadingContainer: {
         flex: 1,

@@ -145,13 +145,14 @@ export const ExpensesScreen = () => {
         <View style={styles.container}>
             <ScrollView style={styles.scrollView}>
                 <View style={styles.header}>
-                    <Text variant="headlineMedium">Expenses</Text>
+                    <Text variant="headlineMedium" style={styles.headerText}>Expenses</Text>
                     <Menu
                         visible={menuVisible}
                         onDismiss={() => setMenuVisible(false)}
                         anchor={
                             <IconButton
                                 icon="filter-variant"
+                                iconColor="white"
                                 onPress={() => setMenuVisible(true)}
                             />
                         }
@@ -171,14 +172,15 @@ export const ExpensesScreen = () => {
                         <Card.Content>
                             <View style={styles.expenseHeader}>
                                 <View>
-                                    <Text variant="titleMedium">{expense.title}</Text>
+                                    <Text variant="titleMedium" style={styles.expenseTitle}>{expense.title}</Text>
                                     {expense.description && (
-                                        <Text variant="bodyMedium">{expense.description}</Text>
+                                        <Text variant="bodyMedium" style={styles.expenseDescription}>{expense.description}</Text>
                                     )}
                                 </View>
                                 {expense.isOwner && (
                                     <IconButton
                                         icon="delete"
+                                        iconColor="#424242"
                                         onPress={() => handleDeleteExpense(expense.id)}
                                     />
                                 )}
@@ -231,6 +233,8 @@ export const ExpensesScreen = () => {
                             onChangeText={setTitle}
                             mode="outlined"
                             style={styles.input}
+                            outlineColor="#424242"
+                            activeOutlineColor="#42B095"
                         />
 
                         <TextInput
@@ -240,6 +244,8 @@ export const ExpensesScreen = () => {
                             mode="outlined"
                             style={styles.input}
                             multiline
+                            outlineColor="#424242"
+                            activeOutlineColor="#42B095"
                         />
 
                         <TextInput
@@ -249,13 +255,15 @@ export const ExpensesScreen = () => {
                             mode="outlined"
                             style={styles.input}
                             keyboardType="decimal-pad"
+                            outlineColor="#424242"
+                            activeOutlineColor="#42B095"
                         />
 
                         <Text variant="titleMedium" style={styles.sectionTitle}>Split With</Text>
 
                         {groups.length > 0 && (
                             <View style={styles.groupSelection}>
-                                <Text variant="bodyMedium">Select Group (optional):</Text>
+                                <Text variant="bodyMedium" style={styles.sectionSubtitle}>Select Group (optional):</Text>
                                 {groups.map(group => (
                                     <Chip
                                         key={group.id}
@@ -264,7 +272,8 @@ export const ExpensesScreen = () => {
                                             setSelectedGroup(selectedGroup === group.id ? null : group.id);
                                             setSelectedFriends([]);
                                         }}
-                                        style={styles.chip}
+                                        style={[styles.chip, selectedGroup === group.id && styles.selectedChip]}
+                                        textStyle={styles.chipText}
                                     >
                                         {group.name}
                                     </Chip>
@@ -274,7 +283,7 @@ export const ExpensesScreen = () => {
 
                         {!selectedGroup && friends.length > 0 && (
                             <View style={styles.friendSelection}>
-                                <Text variant="bodyMedium">Select Friends:</Text>
+                                <Text variant="bodyMedium" style={styles.sectionSubtitle}>Select Friends:</Text>
                                 {friends.map(friend => (
                                     <Chip
                                         key={friend.id}
@@ -286,7 +295,8 @@ export const ExpensesScreen = () => {
                                                     : [...selectedFriends, friend.id]
                                             );
                                         }}
-                                        style={styles.chip}
+                                        style={[styles.chip, selectedFriends.includes(friend.id) && styles.selectedChip]}
+                                        textStyle={styles.chipText}
                                     >
                                         {friend.name}
                                     </Chip>
@@ -302,6 +312,13 @@ export const ExpensesScreen = () => {
                                 { value: 'custom', label: 'Custom Split' }
                             ]}
                             style={styles.splitTypeButtons}
+                            theme={{
+                                colors: {
+                                    secondaryContainer: '#E8F5E9',  // Light green for unselected
+                                    onSecondaryContainer: '#424242',  // Dark grey text for unselected
+                                    primary: '#42B095',  // Mint green for selected
+                                }
+                            }}
                         />
 
                         {splitType === 'custom' && (
@@ -321,6 +338,8 @@ export const ExpensesScreen = () => {
                                         mode="outlined"
                                         style={styles.input}
                                         keyboardType="decimal-pad"
+                                        outlineColor="#424242"
+                                        activeOutlineColor="#42B095"
                                     />
                                 ))}
                             </View>
@@ -331,6 +350,8 @@ export const ExpensesScreen = () => {
                             onPress={handleCreateExpense}
                             loading={loading}
                             style={styles.modalButton}
+                            buttonColor="#42B095"
+                            textColor="white"
                         >
                             Create Expense
                         </Button>
@@ -339,6 +360,7 @@ export const ExpensesScreen = () => {
                                 setCreateModalVisible(false);
                                 resetForm();
                             }}
+                            textColor="#424242"
                         >
                             Cancel
                         </Button>
@@ -351,6 +373,7 @@ export const ExpensesScreen = () => {
                 style={styles.fab}
                 onPress={() => setCreateModalVisible(true)}
                 label="Add Expense"
+                color="white"
             />
         </View>
     );
@@ -359,7 +382,7 @@ export const ExpensesScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f5f5f5',
+        backgroundColor: '#42B095',
     },
     scrollView: {
         flex: 1,
@@ -370,17 +393,40 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 20,
+        paddingHorizontal: 16,
+        paddingTop: 8,
+    },
+    headerText: {
+        color: '#FFFFFF',
+        fontSize: 24,
+        fontWeight: '600',
+        marginBottom: 20,
     },
     expenseCard: {
         marginBottom: 12,
+        backgroundColor: '#FFFFFF',
+        elevation: 2,
+        borderRadius: 12,
     },
     expenseHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
     },
+    expenseTitle: {
+        fontSize: 18,
+        fontWeight: '400',
+        color: '#424242',
+    },
+    expenseDescription: {
+        fontSize: 14,
+        color: '#424242',
+        opacity: 0.8,
+    },
     amount: {
-        marginTop: 8,
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#424242',
     },
     sharesContainer: {
         flexDirection: 'row',
@@ -389,32 +435,48 @@ const styles = StyleSheet.create({
     },
     shareChip: {
         margin: 4,
+        backgroundColor: '#E8F5E9', // Light green background for chips
     },
     paidChip: {
         backgroundColor: '#4CAF50',
+    },
+    chipText: {
+        color: '#424242', // Dark grey text
     },
     fab: {
         position: 'absolute',
         margin: 16,
         right: 0,
         bottom: 0,
+        backgroundColor: '#42B095', // Changed to match container background color
     },
     modal: {
         backgroundColor: 'white',
         padding: 20,
         margin: 20,
-        borderRadius: 8,
+        borderRadius: 12,
         maxHeight: '80%',
+        elevation: 2,
     },
     modalTitle: {
         marginBottom: 20,
         textAlign: 'center',
+        color: '#424242',
+        fontSize: 20,
+        fontWeight: '600',
     },
     input: {
         marginBottom: 20,
     },
     sectionTitle: {
         marginBottom: 12,
+        color: '#424242',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    sectionSubtitle: {
+        color: '#424242',
+        marginBottom: 8,
     },
     groupSelection: {
         marginBottom: 20,
@@ -424,6 +486,10 @@ const styles = StyleSheet.create({
     },
     chip: {
         margin: 4,
+        backgroundColor: '#E8F5E9',
+    },
+    selectedChip: {
+        backgroundColor: '#42B095',
     },
     splitTypeButtons: {
         marginBottom: 20,

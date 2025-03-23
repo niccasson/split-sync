@@ -58,10 +58,12 @@ export const FriendsScreen = () => {
                                 <Avatar.Text
                                     size={40}
                                     label={friend.name.split(' ').map(n => n[0]).join('')}
+                                    style={styles.avatar}
+                                    color="white"
                                 />
                                 <View style={styles.friendDetails}>
-                                    <Text variant="titleMedium">{friend.name}</Text>
-                                    <Text variant="bodySmall">{friend.email}</Text>
+                                    <Text variant="titleMedium" style={styles.friendName}>{friend.name}</Text>
+                                    <Text variant="bodySmall" style={styles.friendEmail}>{friend.email}</Text>
                                 </View>
                             </View>
                             <View style={styles.balanceContainer}>
@@ -97,17 +99,22 @@ export const FriendsScreen = () => {
                         keyboardType="email-address"
                         autoCapitalize="none"
                         style={styles.input}
+                        outlineColor="#424242"
+                        activeOutlineColor="#42B095"
                     />
                     <Button
                         mode="contained"
                         onPress={handleAddFriend}
                         loading={modalLoading}
                         style={styles.modalButton}
+                        buttonColor="#42B095"
+                        textColor="white"
                     >
                         Add Friend
                     </Button>
                     <Button
                         onPress={() => setVisible(false)}
+                        textColor="#424242"
                     >
                         Cancel
                     </Button>
@@ -116,10 +123,11 @@ export const FriendsScreen = () => {
 
             {/* FAB for adding friends */}
             <FAB
-                icon="account-plus"
+                icon="plus"
                 style={styles.fab}
                 onPress={() => setVisible(true)}
                 label="Add Friend"
+                color="white"
             />
         </View>
     );
@@ -128,17 +136,23 @@ export const FriendsScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f5f5f5',
+        backgroundColor: '#42B095', // Mint green background
     },
     scrollView: {
         flex: 1,
         padding: 16,
     },
     title: {
+        color: '#FFFFFF',
+        fontSize: 24,
+        fontWeight: '600',
         marginBottom: 20,
     },
     friendCard: {
         marginBottom: 12,
+        backgroundColor: '#FFFFFF',
+        elevation: 2,
+        borderRadius: 12,
     },
     friendContent: {
         flexDirection: 'row',
@@ -160,6 +174,7 @@ const styles = StyleSheet.create({
         margin: 16,
         right: 0,
         bottom: 0,
+        backgroundColor: '#42B095',
     },
     modal: {
         backgroundColor: 'white',
@@ -186,5 +201,18 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    avatar: {
+        backgroundColor: '#42B095',
+    },
+    friendName: {
+        color: '#424242',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    friendEmail: {
+        color: '#424242',
+        opacity: 0.8,
+        fontSize: 14,
     },
 }); 

@@ -64,6 +64,9 @@ export const DashboardScreen = ({ navigation }) => {
     return (
         <View style={styles.container}>
             <ScrollView style={styles.scrollView}>
+                {/* Add Dashboard title */}
+                <Text variant="headlineMedium" style={styles.headerText}>Dashboard</Text>
+
                 {/* Balance Summary */}
                 <Card style={styles.balanceCard}>
                     <Card.Content>
@@ -99,26 +102,28 @@ export const DashboardScreen = ({ navigation }) => {
                 </Card>
 
                 {/* Quick Actions */}
-                <View style={styles.quickActions}>
-                    <Text variant="titleLarge" style={styles.sectionTitle}>Quick Actions</Text>
-                    <View style={styles.actionButtons}>
-                        <Button
-                            mode="contained-tonal"
-                            icon="account-plus"
-                            style={styles.actionButton}
-                            onPress={() => navigation.navigate('FriendsTab')}
-                        >
-                            Add Friend
-                        </Button>
-                        <Button
-                            mode="contained-tonal"
-                            icon="account-group"
-                            style={styles.actionButton}
-                            onPress={() => navigation.navigate('GroupsTab')}
-                        >
-                            New Group
-                        </Button>
-                    </View>
+                <Text variant="titleLarge" style={styles.quickActionsTitle}>Quick Actions</Text>
+                <View style={styles.actionButtons}>
+                    <Button
+                        mode="outlined"
+                        icon="account-plus"
+                        style={styles.actionButton}
+                        buttonColor="#F5F5F5"
+                        textColor="#424242"
+                        onPress={() => navigation.navigate('FriendsTab')}
+                    >
+                        Add Friend
+                    </Button>
+                    <Button
+                        mode="outlined"
+                        icon="account-group"
+                        style={styles.actionButton}
+                        buttonColor="#F5F5F5"
+                        textColor="#424242"
+                        onPress={() => navigation.navigate('GroupsTab')}
+                    >
+                        New Group
+                    </Button>
                 </View>
 
                 {/* Recent Activity */}
@@ -129,10 +134,10 @@ export const DashboardScreen = ({ navigation }) => {
                             recentActivity.map((activity) => (
                                 <View key={activity.id} style={styles.activityItem}>
                                     <View>
-                                        <Text variant="titleMedium">{activity.title}</Text>
+                                        <Text variant="titleMedium" style={styles.activityTitle}>{activity.title}</Text>
                                         <Text variant="bodySmall">{activity.group}</Text>
                                     </View>
-                                    <Text variant="titleMedium">${activity.amount.toFixed(2)}</Text>
+                                    <Text variant="titleMedium" style={styles.activityAmount}>${activity.amount.toFixed(2)}</Text>
                                 </View>
                             ))
                         ) : (
@@ -144,12 +149,13 @@ export const DashboardScreen = ({ navigation }) => {
                 </Card>
             </ScrollView>
 
-            {/* FAB for adding new expense */}
+            {/* FAB */}
             <FAB
                 icon="plus"
                 label="Add Expense"
                 style={styles.fab}
                 onPress={() => navigation.navigate('ExpensesTab')}
+                color="white"
             />
         </View>
     );
@@ -158,17 +164,32 @@ export const DashboardScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f5f5f5',
+        backgroundColor: '#42B095',
     },
     scrollView: {
         flex: 1,
         padding: 16,
     },
-    balanceCard: {
-        marginBottom: 16,
+    headerText: {
+        color: '#FFFFFF',
+        fontSize: 24,
+        fontWeight: '600',
+        marginBottom: 20,
     },
     cardTitle: {
+        color: '#424242',
         marginBottom: 16,
+    },
+    quickActionsTitle: {
+        color: '#FFFFFF',
+        marginBottom: 12,
+        marginTop: 16,
+    },
+    balanceCard: {
+        marginBottom: 16,
+        backgroundColor: '#FFFFFF',
+        elevation: 2,
+        borderRadius: 12,
     },
     balanceRow: {
         flexDirection: 'row',
@@ -184,22 +205,22 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: '#e0e0e0',
     },
-    quickActions: {
-        marginBottom: 16,
-    },
-    sectionTitle: {
-        marginBottom: 12,
-    },
     actionButtons: {
         flexDirection: 'row',
         justifyContent: 'space-between',
+        marginBottom: 24,
     },
     actionButton: {
         flex: 1,
         marginHorizontal: 4,
+        backgroundColor: '#F5F5F5',
+        borderColor: '#424242',
     },
     recentActivityCard: {
         marginBottom: 16,
+        backgroundColor: '#FFFFFF',
+        elevation: 2,
+        borderRadius: 12,
     },
     activityItem: {
         flexDirection: 'row',
@@ -209,11 +230,18 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: '#e0e0e0',
     },
+    activityTitle: {
+        color: '#424242',
+    },
+    activityAmount: {
+        color: '#424242',
+    },
     fab: {
         position: 'absolute',
         margin: 16,
         right: 0,
         bottom: 0,
+        backgroundColor: '#42B095',
     },
     loadingContainer: {
         flex: 1,

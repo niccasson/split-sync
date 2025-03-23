@@ -1,24 +1,19 @@
 import React from 'react';
 import { View, StyleSheet, ScrollView, Image } from 'react-native';
-import { Button, Text, useTheme } from 'react-native-paper';
+import { Button, Text, Surface } from 'react-native-paper';
 
 export const HomeScreen = ({ navigation }) => {
-    const theme = useTheme();
-
     return (
         <ScrollView style={styles.container}>
             <View style={styles.content}>
-                {/* App Logo/Icon */}
-                <Image
-                    source={require('../../assets/logo.png')}
-                    style={styles.logo}
-                    resizeMode="contain"
-                />
-
-                {/* App Title */}
-                <Text variant="displaySmall" style={styles.title}>
-                    Split & Share
-                </Text>
+                {/* App Logo */}
+                <Surface style={styles.logoContainer} elevation={2}>
+                    <Image
+                        source={require('../../assets/split-sync_1200x1200Transparent.png')}
+                        style={styles.logo}
+                        resizeMode="contain"
+                    />
+                </Surface>
 
                 {/* Tagline */}
                 <Text variant="titleLarge" style={styles.tagline}>
@@ -35,7 +30,7 @@ export const HomeScreen = ({ navigation }) => {
                         <Text variant="titleSmall" style={styles.featureTitle}>
                             🤝 Easy Group Management
                         </Text>
-                        <Text variant="bodyMedium">
+                        <Text variant="bodyMedium" style={styles.featureText}>
                             Create groups for roommates, trips, or events and manage expenses together
                         </Text>
                     </View>
@@ -44,7 +39,7 @@ export const HomeScreen = ({ navigation }) => {
                         <Text variant="titleSmall" style={styles.featureTitle}>
                             💰 Smart Expense Splitting
                         </Text>
-                        <Text variant="bodyMedium">
+                        <Text variant="bodyMedium" style={styles.featureText}>
                             Split bills evenly or customize amounts for each person
                         </Text>
                     </View>
@@ -53,7 +48,7 @@ export const HomeScreen = ({ navigation }) => {
                         <Text variant="titleSmall" style={styles.featureTitle}>
                             📊 Clear Overview
                         </Text>
-                        <Text variant="bodyMedium">
+                        <Text variant="bodyMedium" style={styles.featureText}>
                             Track who owes what with simple, intuitive balance summaries
                         </Text>
                     </View>
@@ -66,6 +61,8 @@ export const HomeScreen = ({ navigation }) => {
                         onPress={() => navigation.navigate('SignUp')}
                         style={styles.button}
                         contentStyle={styles.buttonContent}
+                        buttonColor="#42B095"
+                        textColor="white"
                     >
                         Get Started
                     </Button>
@@ -73,8 +70,9 @@ export const HomeScreen = ({ navigation }) => {
                     <Button
                         mode="outlined"
                         onPress={() => navigation.navigate('Login')}
-                        style={styles.button}
+                        style={styles.outlinedButton}
                         contentStyle={styles.buttonContent}
+                        textColor="#424242"
                     >
                         I already have an account
                     </Button>
@@ -87,26 +85,28 @@ export const HomeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: '#42B095',
     },
     content: {
         padding: 20,
         alignItems: 'center',
     },
-    logo: {
-        width: 120,
-        height: 120,
+    logoContainer: {
+        backgroundColor: '#FFFFFF',
+        padding: 20,
+        borderRadius: 12,
         marginTop: 40,
+        marginBottom: 20,
     },
-    title: {
-        marginTop: 20,
-        textAlign: 'center',
-        fontWeight: 'bold',
+    logo: {
+        width: 350,
+        height: 140,
     },
     tagline: {
         marginTop: 10,
         textAlign: 'center',
-        color: '#666',
+        color: '#FFFFFF',
+        opacity: 0.9,
     },
     featuresContainer: {
         marginTop: 40,
@@ -115,17 +115,24 @@ const styles = StyleSheet.create({
     sectionTitle: {
         marginBottom: 20,
         textAlign: 'center',
-        fontWeight: 'bold',
+        fontWeight: '600',
+        color: '#FFFFFF',
     },
     feature: {
         marginBottom: 25,
-        backgroundColor: '#f8f8f8',
+        backgroundColor: '#FFFFFF',
         padding: 15,
-        borderRadius: 10,
+        borderRadius: 12,
+        elevation: 2,
     },
     featureTitle: {
         marginBottom: 5,
-        fontWeight: 'bold',
+        fontWeight: '600',
+        color: '#424242',
+    },
+    featureText: {
+        color: '#424242',
+        opacity: 0.8,
     },
     ctaContainer: {
         marginTop: 20,
@@ -135,8 +142,17 @@ const styles = StyleSheet.create({
     button: {
         marginVertical: 8,
         width: '100%',
+        borderRadius: 8,
+    },
+    outlinedButton: {
+        marginVertical: 8,
+        width: '100%',
+        borderRadius: 8,
+        backgroundColor: '#F5F5F5',
+        borderColor: '#424242',
     },
     buttonContent: {
         paddingVertical: 8,
+        height: 48,
     },
 }); 
