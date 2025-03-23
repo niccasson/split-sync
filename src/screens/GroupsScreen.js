@@ -153,6 +153,8 @@ export const GroupsScreen = () => {
                         onChangeText={setGroupName}
                         mode="outlined"
                         style={styles.input}
+                        outlineColor="#424242"
+                        activeOutlineColor="#42B095"
                     />
 
                     <TextInput
@@ -161,12 +163,8 @@ export const GroupsScreen = () => {
                         onChangeText={setMemberEmail}
                         mode="outlined"
                         style={styles.input}
-                        onSubmitEditing={() => {
-                            if (memberEmail) {
-                                setMemberEmails([...memberEmails, memberEmail]);
-                                setMemberEmail('');
-                            }
-                        }}
+                        outlineColor="#424242"
+                        activeOutlineColor="#42B095"
                     />
 
                     <View style={styles.emailChips}>
@@ -186,11 +184,14 @@ export const GroupsScreen = () => {
                         onPress={handleCreateGroup}
                         loading={loading}
                         style={styles.modalButton}
+                        buttonColor="#42B095"
+                        textColor="white"
                     >
                         Create Group
                     </Button>
                     <Button
                         onPress={() => setCreateModalVisible(false)}
+                        textColor="#424242"
                     >
                         Cancel
                     </Button>
@@ -311,11 +312,15 @@ const styles = StyleSheet.create({
         backgroundColor: 'white',
         padding: 20,
         margin: 20,
-        borderRadius: 8,
+        borderRadius: 12,
+        elevation: 2,
     },
     modalTitle: {
         marginBottom: 20,
         textAlign: 'center',
+        color: '#424242',
+        fontSize: 20,
+        fontWeight: '600',
     },
     input: {
         marginBottom: 20,
@@ -335,6 +340,7 @@ const styles = StyleSheet.create({
     },
     chip: {
         margin: 4,
+        backgroundColor: '#E8F5E9',
     },
     loadingContainer: {
         flex: 1,

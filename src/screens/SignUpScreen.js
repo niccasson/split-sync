@@ -1,55 +1,32 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Button, Text } from 'react-native-paper';
+import { Button, Text, Surface } from 'react-native-paper';
 import { supabase } from '../services/supabase';
 import { FormInput } from '../components/FormInput';
+import { LogoIcon } from '../components/LogoIcon';
 
 export const SignUpScreen = ({ navigation }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [fullName, setFullName] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
     const handleSignUp = async () => {
-        if (!fullName.trim()) {
-            setError('Full name is required');
-            return;
-        }
-
         try {
             setLoading(true);
             setError('');
 
-            // 1. Sign up the user with Supabase Auth
-            const { data: authData, error: authError } = await supabase.auth.signUp({
+            if (password !== confirmPassword) {
+                throw new Error('Passwords do not match');
+            }
+
+            const { error } = await supabase.auth.signUp({
                 email,
                 password,
-                options: {
-                    data: {
-                        full_name: fullName,
-                    },
-                },
             });
 
-            if (authError) throw authError;
-
-            // 2. Add the user to our users table
-            const { error: dbError } = await supabase
-                .from('users')
-                .insert([
-                    {
-                        id: authData.user.id,
-                        email: email.toLowerCase(),
-                        full_name: fullName,
-                    }
-                ]);
-
-            if (dbError) throw dbError;
-
-            // Show success message
-            alert('Please check your email for verification link');
-            navigation.navigate('Login');
+            if (error) throw error;
         } catch (error) {
             setError(error.message);
         } finally {
@@ -59,46 +36,60 @@ export const SignUpScreen = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
+            <View style={styles.logoContainer}>
+                <LogoIcon />
+            </View>
+
             <Text variant="headlineMedium" style={styles.title}>Create Account</Text>
 
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+            <Surface style={styles.formContainer} elevation={2}>
+                {error ? <Text style={styles.error}>{error}</Text> : null}
 
-            <FormInput
-                label="Full Name"
-                value={fullName}
-                onChangeText={setFullName}
-                autoCapitalize="words"
-            />
+                <FormInput
+                    label="Email"
+                    value={email}
+                    onChangeText={setEmail}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    style={styles.input}
+                    activeOutlineColor="#42B095"
+                />
 
-            <FormInput
-                label="Email"
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                keyboardType="email-address"
-            />
+                <FormInput
+                    label="Password"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                    style={styles.input}
+                    activeOutlineColor="#42B095"
+                />
 
-            <FormInput
-                label="Password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-            />
+                <FormInput
+                    label="Confirm Password"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry
+                    style={styles.input}
+                    activeOutlineColor="#42B095"
+                />
 
-            <Button
-                mode="contained"
-                onPress={handleSignUp}
-                loading={loading}
-                style={styles.button}
-            >
-                Sign Up
-            </Button>
+                <Button
+                    mode="contained"
+                    onPress={handleSignUp}
+                    loading={loading}
+                    style={styles.button}
+                    buttonColor="#42B095"
+                >
+                    Sign Up
+                </Button>
 
-            <Button
-                onPress={() => navigation.navigate('Login')}
-            >
-                Already have an account? Login
-            </Button>
+                <Button
+                    onPress={() => navigation.navigate('Login')}
+                    textColor="#424242"
+                >
+                    Already have an account? Login
+                </Button>
+            </Surface>
         </View>
     );
 };
@@ -107,18 +98,35 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         padding: 20,
-        justifyContent: 'center',
+        backgroundColor: '#42B095',
+    },
+    logoContainer: {
+        alignSelf: 'flex-start',
+        marginTop: 40,
+        marginLeft: 20,
     },
     title: {
         textAlign: 'center',
         marginBottom: 20,
+        color: '#FFFFFF',
+        fontWeight: '600',
+    },
+    input: {
+        marginBottom: 12,
     },
     button: {
         marginVertical: 10,
+        borderRadius: 8,
     },
     error: {
-        color: 'red',
+        color: '#B00020',
         marginBottom: 10,
         textAlign: 'center',
+    },
+    formContainer: {
+        backgroundColor: '#FFFFFF',
+        padding: 20,
+        borderRadius: 12,
+        marginTop: 20,
     },
 }); 

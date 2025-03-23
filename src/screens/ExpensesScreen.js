@@ -233,6 +233,8 @@ export const ExpensesScreen = () => {
                             onChangeText={setTitle}
                             mode="outlined"
                             style={styles.input}
+                            outlineColor="#424242"
+                            activeOutlineColor="#42B095"
                         />
 
                         <TextInput
@@ -242,6 +244,8 @@ export const ExpensesScreen = () => {
                             mode="outlined"
                             style={styles.input}
                             multiline
+                            outlineColor="#424242"
+                            activeOutlineColor="#42B095"
                         />
 
                         <TextInput
@@ -251,13 +255,15 @@ export const ExpensesScreen = () => {
                             mode="outlined"
                             style={styles.input}
                             keyboardType="decimal-pad"
+                            outlineColor="#424242"
+                            activeOutlineColor="#42B095"
                         />
 
                         <Text variant="titleMedium" style={styles.sectionTitle}>Split With</Text>
 
                         {groups.length > 0 && (
                             <View style={styles.groupSelection}>
-                                <Text variant="bodyMedium">Select Group (optional):</Text>
+                                <Text variant="bodyMedium" style={styles.sectionSubtitle}>Select Group (optional):</Text>
                                 {groups.map(group => (
                                     <Chip
                                         key={group.id}
@@ -266,7 +272,8 @@ export const ExpensesScreen = () => {
                                             setSelectedGroup(selectedGroup === group.id ? null : group.id);
                                             setSelectedFriends([]);
                                         }}
-                                        style={styles.chip}
+                                        style={[styles.chip, selectedGroup === group.id && styles.selectedChip]}
+                                        textStyle={styles.chipText}
                                     >
                                         {group.name}
                                     </Chip>
@@ -276,7 +283,7 @@ export const ExpensesScreen = () => {
 
                         {!selectedGroup && friends.length > 0 && (
                             <View style={styles.friendSelection}>
-                                <Text variant="bodyMedium">Select Friends:</Text>
+                                <Text variant="bodyMedium" style={styles.sectionSubtitle}>Select Friends:</Text>
                                 {friends.map(friend => (
                                     <Chip
                                         key={friend.id}
@@ -288,7 +295,8 @@ export const ExpensesScreen = () => {
                                                     : [...selectedFriends, friend.id]
                                             );
                                         }}
-                                        style={styles.chip}
+                                        style={[styles.chip, selectedFriends.includes(friend.id) && styles.selectedChip]}
+                                        textStyle={styles.chipText}
                                     >
                                         {friend.name}
                                     </Chip>
@@ -304,6 +312,13 @@ export const ExpensesScreen = () => {
                                 { value: 'custom', label: 'Custom Split' }
                             ]}
                             style={styles.splitTypeButtons}
+                            theme={{
+                                colors: {
+                                    secondaryContainer: '#E8F5E9',  // Light green for unselected
+                                    onSecondaryContainer: '#424242',  // Dark grey text for unselected
+                                    primary: '#42B095',  // Mint green for selected
+                                }
+                            }}
                         />
 
                         {splitType === 'custom' && (
@@ -323,6 +338,8 @@ export const ExpensesScreen = () => {
                                         mode="outlined"
                                         style={styles.input}
                                         keyboardType="decimal-pad"
+                                        outlineColor="#424242"
+                                        activeOutlineColor="#42B095"
                                     />
                                 ))}
                             </View>
@@ -333,6 +350,8 @@ export const ExpensesScreen = () => {
                             onPress={handleCreateExpense}
                             loading={loading}
                             style={styles.modalButton}
+                            buttonColor="#42B095"
+                            textColor="white"
                         >
                             Create Expense
                         </Button>
@@ -341,6 +360,7 @@ export const ExpensesScreen = () => {
                                 setCreateModalVisible(false);
                                 resetForm();
                             }}
+                            textColor="#424242"
                         >
                             Cancel
                         </Button>
@@ -434,18 +454,29 @@ const styles = StyleSheet.create({
         backgroundColor: 'white',
         padding: 20,
         margin: 20,
-        borderRadius: 8,
+        borderRadius: 12,
         maxHeight: '80%',
+        elevation: 2,
     },
     modalTitle: {
         marginBottom: 20,
         textAlign: 'center',
+        color: '#424242',
+        fontSize: 20,
+        fontWeight: '600',
     },
     input: {
         marginBottom: 20,
     },
     sectionTitle: {
         marginBottom: 12,
+        color: '#424242',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    sectionSubtitle: {
+        color: '#424242',
+        marginBottom: 8,
     },
     groupSelection: {
         marginBottom: 20,
@@ -455,6 +486,10 @@ const styles = StyleSheet.create({
     },
     chip: {
         margin: 4,
+        backgroundColor: '#E8F5E9',
+    },
+    selectedChip: {
+        backgroundColor: '#42B095',
     },
     splitTypeButtons: {
         marginBottom: 20,

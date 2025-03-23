@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Button, Text } from 'react-native-paper';
+import { Button, Text, Surface } from 'react-native-paper';
 import { supabase } from '../services/supabase';
 import { FormInput } from '../components/FormInput';
+import { LogoIcon } from '../components/LogoIcon';
 
 export const LoginScreen = ({ navigation }) => {
     const [email, setEmail] = useState('');
@@ -33,46 +34,58 @@ export const LoginScreen = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
+            <View style={styles.logoContainer}>
+                <LogoIcon />
+            </View>
+
             <Text variant="headlineMedium" style={styles.title}>Welcome Back</Text>
 
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+            <Surface style={styles.formContainer} elevation={2}>
+                {error ? <Text style={styles.error}>{error}</Text> : null}
 
-            <FormInput
-                label="Email"
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                keyboardType="email-address"
-            />
+                <FormInput
+                    label="Email"
+                    value={email}
+                    onChangeText={setEmail}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    style={styles.input}
+                    activeOutlineColor="#42B095"
+                />
 
-            <FormInput
-                label="Password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-            />
+                <FormInput
+                    label="Password"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                    style={styles.input}
+                    activeOutlineColor="#42B095"
+                />
 
-            <Button
-                mode="contained"
-                onPress={handleLogin}
-                loading={loading}
-                style={styles.button}
-            >
-                Login
-            </Button>
+                <Button
+                    mode="contained"
+                    onPress={handleLogin}
+                    loading={loading}
+                    style={styles.button}
+                    buttonColor="#42B095"
+                >
+                    Login
+                </Button>
 
-            <Button
-                onPress={() => navigation.navigate('SignUp')}
-                style={styles.button}
-            >
-                Don't have an account? Sign Up
-            </Button>
+                <Button
+                    onPress={() => navigation.navigate('ForgotPassword')}
+                    textColor="#424242"
+                >
+                    Forgot Password?
+                </Button>
 
-            <Button
-                onPress={() => navigation.navigate('ForgotPassword')}
-            >
-                Forgot Password?
-            </Button>
+                <Button
+                    onPress={() => navigation.navigate('SignUp')}
+                    textColor="#424242"
+                >
+                    Don't have an account? Sign Up
+                </Button>
+            </Surface>
         </View>
     );
 };
@@ -81,18 +94,35 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         padding: 20,
-        justifyContent: 'center',
+        backgroundColor: '#42B095',
+    },
+    logoContainer: {
+        alignSelf: 'flex-start',
+        marginTop: 40,
+        marginLeft: 20,
     },
     title: {
         textAlign: 'center',
         marginBottom: 20,
+        color: '#FFFFFF',
+        fontWeight: '600',
+    },
+    input: {
+        marginBottom: 12,
     },
     button: {
         marginVertical: 10,
+        borderRadius: 8,
     },
     error: {
-        color: 'red',
+        color: '#B00020',
         marginBottom: 10,
         textAlign: 'center',
+    },
+    formContainer: {
+        backgroundColor: '#FFFFFF',
+        padding: 20,
+        borderRadius: 12,
+        marginTop: 20,
     },
 }); 

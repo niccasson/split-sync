@@ -99,17 +99,22 @@ export const FriendsScreen = () => {
                         keyboardType="email-address"
                         autoCapitalize="none"
                         style={styles.input}
+                        outlineColor="#424242"
+                        activeOutlineColor="#42B095"
                     />
                     <Button
                         mode="contained"
                         onPress={handleAddFriend}
                         loading={modalLoading}
                         style={styles.modalButton}
+                        buttonColor="#42B095"
+                        textColor="white"
                     >
                         Add Friend
                     </Button>
                     <Button
                         onPress={() => setVisible(false)}
+                        textColor="#424242"
                     >
                         Cancel
                     </Button>
