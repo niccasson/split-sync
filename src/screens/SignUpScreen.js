@@ -11,22 +11,37 @@ export const SignUpScreen = ({ navigation }) => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
 
     const handleSignUp = async () => {
         try {
             setLoading(true);
             setError('');
+            setSuccessMessage('');
 
             if (password !== confirmPassword) {
                 throw new Error('Passwords do not match');
             }
 
-            const { error } = await supabase.auth.signUp({
+            const { data, error } = await supabase.auth.signUp({
                 email,
                 password,
             });
 
             if (error) throw error;
+
+            // Check if the signup was successful and email confirmation is required
+            if (data?.user?.identities?.length === 0) {
+                throw new Error('Email already registered');
+            }
+
+            if (data?.user && !data?.session) {
+                setSuccessMessage('Verification email has been sent. Please check your inbox.');
+                setEmail('');
+                setPassword('');
+                setConfirmPassword('');
+            }
+
         } catch (error) {
             setError(error.message);
         } finally {
@@ -44,6 +59,7 @@ export const SignUpScreen = ({ navigation }) => {
 
             <Surface style={styles.formContainer} elevation={2}>
                 {error ? <Text style={styles.error}>{error}</Text> : null}
+                {successMessage ? <Text style={styles.success}>{successMessage}</Text> : null}
 
                 <FormInput
                     label="Email"
@@ -120,6 +136,11 @@ const styles = StyleSheet.create({
     },
     error: {
         color: '#B00020',
+        marginBottom: 10,
+        textAlign: 'center',
+    },
+    success: {
+        color: '#4CAF50',
         marginBottom: 10,
         textAlign: 'center',
     },

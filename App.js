@@ -29,6 +29,7 @@ const linking = {
                     FriendsTab: 'friends',
                     GroupsTab: 'groups',
                     ExpensesTab: 'expenses',
+                    AccountTab: 'account'
                 }
             }
         }

@@ -3,36 +3,35 @@ import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../services/supabase';
 
 export const useAuth = () => {
-    const navigation = useNavigation();
     const [isChecking, setIsChecking] = useState(true);
+    const [user, setUser] = useState(null);
+    const navigation = useNavigation();
 
     useEffect(() => {
         const checkAuth = async () => {
             try {
                 setIsChecking(true);
-                const { data: { user }, error } = await supabase.auth.getUser();
+                const { data: { session } } = await supabase.auth.getSession();
+                setUser(session?.user || null);
 
-                if (!user || error) {
-                    let nav = navigation;
-                    while (nav.getParent()) {
-                        nav = nav.getParent();
+                if (session?.user) {
+                    // If we have a user and we're on Home/Login, go to Authenticated
+                    const currentRoute = navigation.getCurrentRoute()?.name;
+                    if (currentRoute === 'Home' || currentRoute === 'Login') {
+                        navigation.replace('Authenticated');
                     }
-
-                    nav.reset({
-                        index: 0,
-                        routes: [{ name: 'Login' }],
-                    });
+                } else {
+                    // If no user and we're in Authenticated screens, go to Login
+                    const currentRoute = navigation.getCurrentRoute()?.name;
+                    if (currentRoute !== 'Home' && currentRoute !== 'Login' && currentRoute !== 'SignUp') {
+                        navigation.reset({
+                            index: 0,
+                            routes: [{ name: 'Login' }],
+                        });
+                    }
                 }
             } catch (err) {
-                let nav = navigation;
-                while (nav.getParent()) {
-                    nav = nav.getParent();
-                }
-
-                nav.reset({
-                    index: 0,
-                    routes: [{ name: 'Login' }],
-                });
+                console.error('Auth check error:', err);
             } finally {
                 setIsChecking(false);
             }
@@ -42,12 +41,7 @@ export const useAuth = () => {
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             if (event === 'SIGNED_OUT' || !session) {
-                let nav = navigation;
-                while (nav.getParent()) {
-                    nav = nav.getParent();
-                }
-
-                nav.reset({
+                navigation.reset({
                     index: 0,
                     routes: [{ name: 'Login' }],
                 });
@@ -59,5 +53,5 @@ export const useAuth = () => {
         };
     }, [navigation]);
 
-    return { isChecking };
+    return { isChecking, user };
 }; 

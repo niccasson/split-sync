@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, Card, Button, FAB, TextInput, Portal, Modal, Chip, IconButton, ActivityIndicator, SegmentedButtons, Menu } from 'react-native-paper';
+import { Text, Card, Button, FAB, TextInput, Portal, Modal, Chip, IconButton, ActivityIndicator, SegmentedButtons } from 'react-native-paper';
 import { useExpenses } from '../hooks/useExpenses';
 import { useGroups } from '../hooks/useGroups';
 import { useFriends } from '../hooks/useFriends';
 import { useAuth } from '../hooks/useAuth';
+import { LogoIcon } from '../components/LogoIcon';
 
 export const ExpensesScreen = () => {
     useAuth();
@@ -18,8 +19,6 @@ export const ExpensesScreen = () => {
     const [customAmounts, setCustomAmounts] = useState({});
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [filter, setFilter] = useState('all'); // 'all', 'group', 'personal'
-    const [menuVisible, setMenuVisible] = useState(false);
 
     const { expenses, loading: expensesLoading, error: expensesError, createExpense, markShareAsPaid, deleteExpense } = useExpenses();
     const { groups } = useGroups();
@@ -127,11 +126,8 @@ export const ExpensesScreen = () => {
         }
     };
 
-    const filteredExpenses = expenses.filter(expense => {
-        if (filter === 'all') return true;
-        if (filter === 'group') return expense.groupId !== null;
-        return expense.groupId === null;
-    });
+    const filteredExpenses = expenses
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     if (expensesLoading) {
         return (
@@ -144,24 +140,10 @@ export const ExpensesScreen = () => {
     return (
         <View style={styles.container}>
             <ScrollView style={styles.scrollView}>
-                <View style={styles.header}>
-                    <Text variant="headlineMedium" style={styles.headerText}>Expenses</Text>
-                    <Menu
-                        visible={menuVisible}
-                        onDismiss={() => setMenuVisible(false)}
-                        anchor={
-                            <IconButton
-                                icon="filter-variant"
-                                iconColor="white"
-                                onPress={() => setMenuVisible(true)}
-                            />
-                        }
-                    >
-                        <Menu.Item onPress={() => { setFilter('all'); setMenuVisible(false); }} title="All Expenses" />
-                        <Menu.Item onPress={() => { setFilter('group'); setMenuVisible(false); }} title="Group Expenses" />
-                        <Menu.Item onPress={() => { setFilter('personal'); setMenuVisible(false); }} title="Personal Expenses" />
-                    </Menu>
+                <View style={styles.logoContainer}>
+                    <LogoIcon />
                 </View>
+                <Text variant="headlineMedium" style={styles.headerText}>Expenses</Text>
 
                 {expensesError ? (
                     <Text style={styles.error}>{expensesError}</Text>
@@ -173,6 +155,9 @@ export const ExpensesScreen = () => {
                             <View style={styles.expenseHeader}>
                                 <View>
                                     <Text variant="titleMedium" style={styles.expenseTitle}>{expense.title}</Text>
+                                    <Text variant="bodySmall" style={styles.expenseDate}>
+                                        {new Date(expense.createdAt).toLocaleDateString()}
+                                    </Text>
                                     {expense.description && (
                                         <Text variant="bodyMedium" style={styles.expenseDescription}>{expense.description}</Text>
                                     )}
@@ -388,19 +373,17 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 16,
     },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 20,
-        paddingHorizontal: 16,
-        paddingTop: 8,
+    logoContainer: {
+        alignSelf: 'flex-start',
+        marginTop: 40,
+        marginLeft: 20,
     },
     headerText: {
         color: '#FFFFFF',
         fontSize: 24,
         fontWeight: '600',
         marginBottom: 20,
+        textAlign: 'center',
     },
     expenseCard: {
         marginBottom: 12,
@@ -509,5 +492,11 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    expenseDate: {
+        fontSize: 12,
+        color: '#424242',
+        opacity: 0.6,
+        marginBottom: 4,
     },
 }); 

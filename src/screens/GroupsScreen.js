@@ -3,6 +3,7 @@ import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Card, Button, FAB, TextInput, Portal, Modal, List, Chip, IconButton, ActivityIndicator } from 'react-native-paper';
 import { useGroups } from '../hooks/useGroups';
 import { useAuth } from '../hooks/useAuth';
+import { LogoIcon } from '../components/LogoIcon';
 
 export const GroupsScreen = () => {
     useAuth();
@@ -84,6 +85,9 @@ export const GroupsScreen = () => {
     return (
         <View style={styles.container}>
             <ScrollView style={styles.scrollView}>
+                <View style={styles.logoContainer}>
+                    <LogoIcon />
+                </View>
                 <Text variant="headlineMedium" style={styles.headerText}>Groups</Text>
 
                 {groupsError ? (
@@ -261,11 +265,17 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 16,
     },
+    logoContainer: {
+        alignSelf: 'flex-start',
+        marginTop: 40,
+        marginLeft: 20,
+    },
     headerText: {
         color: '#FFFFFF',
         fontSize: 24,
         fontWeight: '600',
         marginBottom: 20,
+        textAlign: 'center',
     },
     groupCard: {
         marginBottom: 12,

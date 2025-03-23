@@ -3,6 +3,7 @@ import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Text, Card, Button, FAB, TextInput, Portal, Modal, Avatar, Chip } from 'react-native-paper';
 import { useFriends } from '../hooks/useFriends';
 import { useAuth } from '../hooks/useAuth';
+import { LogoIcon } from '../components/LogoIcon';
 
 export const FriendsScreen = () => {
     const { isChecking } = useAuth();
@@ -44,7 +45,10 @@ export const FriendsScreen = () => {
     return (
         <View style={styles.container}>
             <ScrollView style={styles.scrollView}>
-                <Text variant="headlineMedium" style={styles.title}>Friends</Text>
+                <View style={styles.logoContainer}>
+                    <LogoIcon />
+                </View>
+                <Text variant="headlineMedium" style={styles.headerText}>Friends</Text>
 
                 {friendsError ? (
                     <Text style={styles.error}>{friendsError}</Text>
@@ -141,6 +145,18 @@ const styles = StyleSheet.create({
     scrollView: {
         flex: 1,
         padding: 16,
+    },
+    logoContainer: {
+        alignSelf: 'flex-start',
+        marginTop: 40,
+        marginLeft: 20,
+    },
+    headerText: {
+        color: '#FFFFFF',
+        fontSize: 24,
+        fontWeight: '600',
+        marginBottom: 20,
+        textAlign: 'center',
     },
     title: {
         color: '#FFFFFF',
