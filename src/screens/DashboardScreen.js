@@ -4,6 +4,7 @@ import { Button, Card, Text, useTheme, FAB } from 'react-native-paper';
 import { useAuth } from '../hooks/useAuth';
 import { useFriends } from '../hooks/useFriends';
 import { useExpenses } from '../hooks/useExpenses';
+import { LogoIcon } from '../components/LogoIcon';
 
 export const DashboardScreen = ({ navigation }) => {
     const { isChecking } = useAuth();
@@ -49,7 +50,8 @@ export const DashboardScreen = ({ navigation }) => {
                 id: expense.id,
                 title: expense.title,
                 amount: expense.totalAmount,
-                group: expense.groupName || 'Personal'
+                group: expense.groupName || 'Personal',
+                createdAt: expense.createdAt
             }));
     }, [expenses]);
 
@@ -64,7 +66,9 @@ export const DashboardScreen = ({ navigation }) => {
     return (
         <View style={styles.container}>
             <ScrollView style={styles.scrollView}>
-                {/* Add Dashboard title */}
+                <View style={styles.logoContainer}>
+                    <LogoIcon />
+                </View>
                 <Text variant="headlineMedium" style={styles.headerText}>Dashboard</Text>
 
                 {/* Balance Summary */}
@@ -135,6 +139,9 @@ export const DashboardScreen = ({ navigation }) => {
                                 <View key={activity.id} style={styles.activityItem}>
                                     <View>
                                         <Text variant="titleMedium" style={styles.activityTitle}>{activity.title}</Text>
+                                        <Text variant="bodySmall" style={styles.activityDate}>
+                                            {new Date(activity.createdAt).toLocaleDateString()}
+                                        </Text>
                                         <Text variant="bodySmall">{activity.group}</Text>
                                     </View>
                                     <Text variant="titleMedium" style={styles.activityAmount}>${activity.amount.toFixed(2)}</Text>
@@ -170,11 +177,17 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 16,
     },
+    logoContainer: {
+        alignSelf: 'flex-start',
+        marginTop: 40,
+        marginLeft: 20,
+    },
     headerText: {
         color: '#FFFFFF',
         fontSize: 24,
         fontWeight: '600',
         marginBottom: 20,
+        textAlign: 'center',
     },
     cardTitle: {
         color: '#424242',
@@ -235,6 +248,11 @@ const styles = StyleSheet.create({
     },
     activityAmount: {
         color: '#424242',
+    },
+    activityDate: {
+        fontSize: 12,
+        color: '#424242',
+        opacity: 0.6,
     },
     fab: {
         position: 'absolute',

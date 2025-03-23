@@ -3,6 +3,7 @@ import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Card, Button, FAB, TextInput, Portal, Modal, List, Chip, IconButton, ActivityIndicator } from 'react-native-paper';
 import { useGroups } from '../hooks/useGroups';
 import { useAuth } from '../hooks/useAuth';
+import { LogoIcon } from '../components/LogoIcon';
 
 export const GroupsScreen = () => {
     useAuth();
@@ -84,6 +85,9 @@ export const GroupsScreen = () => {
     return (
         <View style={styles.container}>
             <ScrollView style={styles.scrollView}>
+                <View style={styles.logoContainer}>
+                    <LogoIcon />
+                </View>
                 <Text variant="headlineMedium" style={styles.headerText}>Groups</Text>
 
                 {groupsError ? (
@@ -202,38 +206,35 @@ export const GroupsScreen = () => {
             <Portal>
                 <Modal
                     visible={addMemberModalVisible}
-                    onDismiss={() => {
-                        setAddMemberModalVisible(false);
-                        setSelectedGroup(null);
-                    }}
+                    onDismiss={() => setAddMemberModalVisible(false)}
                     contentContainerStyle={styles.modal}
                 >
                     <Text variant="titleLarge" style={styles.modalTitle}>Add Member</Text>
                     {error ? <Text style={styles.error}>{error}</Text> : null}
-
                     <TextInput
-                        label="Member Email"
+                        label="Email"
                         value={memberEmail}
                         onChangeText={setMemberEmail}
                         mode="outlined"
-                        style={styles.input}
                         keyboardType="email-address"
                         autoCapitalize="none"
+                        style={styles.input}
+                        outlineColor="#424242"
+                        activeOutlineColor="#42B095"
                     />
-
                     <Button
                         mode="contained"
                         onPress={handleAddMember}
                         loading={loading}
                         style={styles.modalButton}
+                        buttonColor="#42B095"
+                        textColor="white"
                     >
                         Add Member
                     </Button>
                     <Button
-                        onPress={() => {
-                            setAddMemberModalVisible(false);
-                            setSelectedGroup(null);
-                        }}
+                        onPress={() => setAddMemberModalVisible(false)}
+                        textColor="#424242"
                     >
                         Cancel
                     </Button>
@@ -261,11 +262,17 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 16,
     },
+    logoContainer: {
+        alignSelf: 'flex-start',
+        marginTop: 40,
+        marginLeft: 20,
+    },
     headerText: {
         color: '#FFFFFF',
         fontSize: 24,
         fontWeight: '600',
         marginBottom: 20,
+        textAlign: 'center',
     },
     groupCard: {
         marginBottom: 12,
@@ -313,7 +320,6 @@ const styles = StyleSheet.create({
         padding: 20,
         margin: 20,
         borderRadius: 12,
-        elevation: 2,
     },
     modalTitle: {
         marginBottom: 20,
@@ -327,6 +333,7 @@ const styles = StyleSheet.create({
     },
     modalButton: {
         marginBottom: 12,
+        borderRadius: 8,
     },
     error: {
         color: '#B00020',

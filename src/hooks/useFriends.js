@@ -10,6 +10,7 @@ export const useFriends = () => {
         try {
             setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
+            console.log('Current user:', user);
 
             if (!user) throw new Error('No user logged in');
 
@@ -20,6 +21,7 @@ export const useFriends = () => {
                 .eq('user_id', user.id)
                 .eq('status', 'accepted');
 
+            console.log('Initiated friendships:', initiatedFriendships);
             if (initiatedError) throw initiatedError;
 
             // 2. Get friendships where user is the friend
@@ -29,6 +31,7 @@ export const useFriends = () => {
                 .eq('friend_id', user.id)
                 .eq('status', 'accepted');
 
+            console.log('Received friendships:', receivedFriendships);
             if (receivedError) throw receivedError;
 
             // Combine all friend IDs
@@ -36,8 +39,10 @@ export const useFriends = () => {
                 ...(initiatedFriendships || []).map(f => f.friend_id),
                 ...(receivedFriendships || []).map(f => f.user_id)
             ];
+            console.log('Combined friend IDs:', friendIds);
 
             if (friendIds.length === 0) {
+                console.log('No friends found');
                 setFriends([]);
                 return;
             }
@@ -48,15 +53,21 @@ export const useFriends = () => {
                 .select('id, email, full_name')
                 .in('id', friendIds);
 
+            console.log('Raw friends data:', friendsData);
             if (friendsError) throw friendsError;
 
             // Transform friends data with default balances
             const transformedFriends = friendsData.map(friend => ({
                 id: friend.id,
-                name: friend.full_name,
+                full_name: friend.full_name || '',  // Ensure we have a default value
                 email: friend.email,
-                balance: 0
+                balance: 0,
+                // Add any other fields needed for friend selection
+                name: friend.full_name || friend.email, // Add a display name field
+                selected: false // For selection state in expenses
             }));
+
+            console.log('Transformed friends for display:', transformedFriends);
 
             // Calculate balances for each friend
             for (const friend of transformedFriends) {
@@ -111,6 +122,7 @@ export const useFriends = () => {
                 }
             }
 
+            console.log('Final friends data with balances:', transformedFriends);
             setFriends(transformedFriends);
         } catch (err) {
             console.error('Error in fetchFriends:', err);
@@ -125,38 +137,55 @@ export const useFriends = () => {
         try {
             setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
+            console.log('Current user trying to add friend:', user);
 
             if (!user) throw new Error('No user logged in');
 
+            // First find the friend in public.users table
             const { data: friendData, error: friendError } = await supabase
                 .from('users')
-                .select('id')
+                .select('id, email, full_name')
                 .eq('email', email)
                 .single();
 
-            if (friendError) throw new Error('User not found');
+            console.log('Found friend:', friendData);
 
+            if (friendError || !friendData) {
+                console.error('Friend lookup error:', friendError);
+                throw new Error('User not found');
+            }
+
+            // Check if friendship already exists in either direction
             const { data: existingFriendship, error: existingError } = await supabase
                 .from('friendships')
-                .select('id')
-                .eq('user_id', user.id)
-                .eq('friend_id', friendData.id)
+                .select('*')
+                .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`)
+                .or(`user_id.eq.${friendData.id},friend_id.eq.${friendData.id}`)
                 .single();
+
+            console.log('Existing friendship check:', existingFriendship);
 
             if (existingFriendship) {
                 throw new Error('Already friends with this user');
             }
 
+            // Create new friendship
             const { error: friendshipError } = await supabase
                 .from('friendships')
                 .insert([{
                     user_id: user.id,
                     friend_id: friendData.id,
                     status: 'accepted'
-                }]);
+                }])
+                .select()
+                .single();
 
-            if (friendshipError) throw friendshipError;
+            if (friendshipError) {
+                console.error('Friendship creation error:', friendshipError);
+                throw friendshipError;
+            }
 
+            console.log('Successfully created friendship');
             await fetchFriends();
         } catch (err) {
             console.error('Error in addFriend:', err);

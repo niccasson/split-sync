@@ -3,6 +3,7 @@ import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Text, Card, Button, FAB, TextInput, Portal, Modal, Avatar, Chip } from 'react-native-paper';
 import { useFriends } from '../hooks/useFriends';
 import { useAuth } from '../hooks/useAuth';
+import { LogoIcon } from '../components/LogoIcon';
 
 export const FriendsScreen = () => {
     const { isChecking } = useAuth();
@@ -33,7 +34,15 @@ export const FriendsScreen = () => {
         return '#757575'; // Grey for zero balance
     };
 
+    console.log('FriendsScreen render:', {
+        isChecking,
+        friendsLoading,
+        friendsCount: friends.length,
+        friends
+    });
+
     if (isChecking || friendsLoading) {
+        console.log('Loading state:', { isChecking, friendsLoading });
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" />
@@ -44,42 +53,50 @@ export const FriendsScreen = () => {
     return (
         <View style={styles.container}>
             <ScrollView style={styles.scrollView}>
-                <Text variant="headlineMedium" style={styles.title}>Friends</Text>
+                <View style={styles.logoContainer}>
+                    <LogoIcon />
+                </View>
+                <Text variant="headlineMedium" style={styles.headerText}>Friends</Text>
 
                 {friendsError ? (
                     <Text style={styles.error}>{friendsError}</Text>
                 ) : null}
 
                 {/* Friends List */}
-                {friends.map((friend) => (
-                    <Card key={friend.id} style={styles.friendCard}>
-                        <Card.Content style={styles.friendContent}>
-                            <View style={styles.friendInfo}>
-                                <Avatar.Text
-                                    size={40}
-                                    label={friend.name.split(' ').map(n => n[0]).join('')}
-                                    style={styles.avatar}
-                                    color="white"
-                                />
-                                <View style={styles.friendDetails}>
-                                    <Text variant="titleMedium" style={styles.friendName}>{friend.name}</Text>
-                                    <Text variant="bodySmall" style={styles.friendEmail}>{friend.email}</Text>
+                {friends.map((friend) => {
+                    console.log('Rendering friend:', friend);
+                    return (
+                        <Card key={friend.id} style={styles.friendCard}>
+                            <Card.Content style={styles.friendContent}>
+                                <View style={styles.friendInfo}>
+                                    <Avatar.Text
+                                        size={40}
+                                        label={(friend.full_name || ' ').substring(0, 2).toUpperCase()}
+                                        style={styles.avatar}
+                                        color="white"
+                                    />
+                                    <View style={styles.friendDetails}>
+                                        <Text variant="titleMedium" style={styles.friendName}>
+                                            {friend.full_name || ' '}
+                                        </Text>
+                                        <Text variant="bodySmall" style={styles.friendEmail}>{friend.email}</Text>
+                                    </View>
                                 </View>
-                            </View>
-                            <View style={styles.balanceContainer}>
-                                <Text
-                                    variant="titleMedium"
-                                    style={{ color: getBalanceColor(friend.balance) }}
-                                >
-                                    ${Math.abs(friend.balance).toFixed(2)}
-                                </Text>
-                                <Text variant="bodySmall" style={{ color: getBalanceColor(friend.balance) }}>
-                                    {friend.balance > 0 ? 'owes you' : friend.balance < 0 ? 'you owe' : 'settled up'}
-                                </Text>
-                            </View>
-                        </Card.Content>
-                    </Card>
-                ))}
+                                <View style={styles.balanceContainer}>
+                                    <Text
+                                        variant="titleMedium"
+                                        style={{ color: getBalanceColor(friend.balance) }}
+                                    >
+                                        ${Math.abs(friend.balance).toFixed(2)}
+                                    </Text>
+                                    <Text variant="bodySmall" style={{ color: getBalanceColor(friend.balance) }}>
+                                        {friend.balance > 0 ? 'owes you' : friend.balance < 0 ? 'you owe' : 'settled up'}
+                                    </Text>
+                                </View>
+                            </Card.Content>
+                        </Card>
+                    );
+                })}
             </ScrollView>
 
             {/* Add Friend Modal */}
@@ -141,6 +158,18 @@ const styles = StyleSheet.create({
     scrollView: {
         flex: 1,
         padding: 16,
+    },
+    logoContainer: {
+        alignSelf: 'flex-start',
+        marginTop: 40,
+        marginLeft: 20,
+    },
+    headerText: {
+        color: '#FFFFFF',
+        fontSize: 24,
+        fontWeight: '600',
+        marginBottom: 20,
+        textAlign: 'center',
     },
     title: {
         color: '#FFFFFF',

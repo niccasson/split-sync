@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, Card, Button, FAB, TextInput, Portal, Modal, Chip, IconButton, ActivityIndicator, SegmentedButtons, Menu } from 'react-native-paper';
+import { Text, Card, Button, FAB, TextInput, Portal, Modal, Chip, IconButton, ActivityIndicator, SegmentedButtons, List, Avatar, Checkbox } from 'react-native-paper';
 import { useExpenses } from '../hooks/useExpenses';
 import { useGroups } from '../hooks/useGroups';
 import { useFriends } from '../hooks/useFriends';
 import { useAuth } from '../hooks/useAuth';
+import { LogoIcon } from '../components/LogoIcon';
 
 export const ExpensesScreen = () => {
     useAuth();
@@ -18,12 +19,12 @@ export const ExpensesScreen = () => {
     const [customAmounts, setCustomAmounts] = useState({});
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [filter, setFilter] = useState('all'); // 'all', 'group', 'personal'
-    const [menuVisible, setMenuVisible] = useState(false);
 
     const { expenses, loading: expensesLoading, error: expensesError, createExpense, markShareAsPaid, deleteExpense } = useExpenses();
     const { groups } = useGroups();
     const { friends } = useFriends();
+
+    const selectedGroupData = groups.find(g => g.id === selectedGroup);
 
     const handleCreateExpense = async () => {
         if (!title.trim() || !amount || amount <= 0) {
@@ -127,11 +128,37 @@ export const ExpensesScreen = () => {
         }
     };
 
-    const filteredExpenses = expenses.filter(expense => {
-        if (filter === 'all') return true;
-        if (filter === 'group') return expense.groupId !== null;
-        return expense.groupId === null;
-    });
+    const handleFriendSelect = (friend) => {
+        if (selectedFriends.includes(friend.id)) {
+            setSelectedFriends(selectedFriends.filter(id => id !== friend.id));
+        } else {
+            setSelectedFriends([...selectedFriends, friend.id]);
+        }
+    };
+
+    const filteredExpenses = expenses
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    const renderFriend = ({ item: friend }) => (
+        <List.Item
+            title={friend.full_name || friend.email}
+            description={friend.email}
+            left={props => (
+                <Avatar.Text
+                    {...props}
+                    label={(friend.full_name || ' ').substring(0, 2).toUpperCase()}
+                    size={40}
+                />
+            )}
+            onPress={() => handleFriendSelect(friend)}
+            right={props => (
+                <Checkbox
+                    status={selectedFriends.includes(friend.id) ? 'checked' : 'unchecked'}
+                    onPress={() => handleFriendSelect(friend)}
+                />
+            )}
+        />
+    );
 
     if (expensesLoading) {
         return (
@@ -144,24 +171,10 @@ export const ExpensesScreen = () => {
     return (
         <View style={styles.container}>
             <ScrollView style={styles.scrollView}>
-                <View style={styles.header}>
-                    <Text variant="headlineMedium" style={styles.headerText}>Expenses</Text>
-                    <Menu
-                        visible={menuVisible}
-                        onDismiss={() => setMenuVisible(false)}
-                        anchor={
-                            <IconButton
-                                icon="filter-variant"
-                                iconColor="white"
-                                onPress={() => setMenuVisible(true)}
-                            />
-                        }
-                    >
-                        <Menu.Item onPress={() => { setFilter('all'); setMenuVisible(false); }} title="All Expenses" />
-                        <Menu.Item onPress={() => { setFilter('group'); setMenuVisible(false); }} title="Group Expenses" />
-                        <Menu.Item onPress={() => { setFilter('personal'); setMenuVisible(false); }} title="Personal Expenses" />
-                    </Menu>
+                <View style={styles.logoContainer}>
+                    <LogoIcon />
                 </View>
+                <Text variant="headlineMedium" style={styles.headerText}>Expenses</Text>
 
                 {expensesError ? (
                     <Text style={styles.error}>{expensesError}</Text>
@@ -173,6 +186,9 @@ export const ExpensesScreen = () => {
                             <View style={styles.expenseHeader}>
                                 <View>
                                     <Text variant="titleMedium" style={styles.expenseTitle}>{expense.title}</Text>
+                                    <Text variant="bodySmall" style={styles.expenseDate}>
+                                        {new Date(expense.createdAt).toLocaleDateString()}
+                                    </Text>
                                     {expense.description && (
                                         <Text variant="bodyMedium" style={styles.expenseDescription}>{expense.description}</Text>
                                     )}
@@ -251,10 +267,16 @@ export const ExpensesScreen = () => {
                         <TextInput
                             label="Amount"
                             value={amount}
-                            onChangeText={setAmount}
+                            onChangeText={(text) => {
+                                // Allow only numbers and up to 2 decimal places
+                                const regex = /^\d*\.?\d{0,2}$/;
+                                if (regex.test(text) || text === '') {
+                                    setAmount(text);
+                                }
+                            }}
                             mode="outlined"
-                            style={styles.input}
                             keyboardType="decimal-pad"
+                            style={styles.input}
                             outlineColor="#424242"
                             activeOutlineColor="#42B095"
                         />
@@ -284,23 +306,24 @@ export const ExpensesScreen = () => {
                         {!selectedGroup && friends.length > 0 && (
                             <View style={styles.friendSelection}>
                                 <Text variant="bodyMedium" style={styles.sectionSubtitle}>Select Friends:</Text>
-                                {friends.map(friend => (
-                                    <Chip
-                                        key={friend.id}
-                                        selected={selectedFriends.includes(friend.id)}
-                                        onPress={() => {
-                                            setSelectedFriends(
-                                                selectedFriends.includes(friend.id)
-                                                    ? selectedFriends.filter(id => id !== friend.id)
-                                                    : [...selectedFriends, friend.id]
-                                            );
-                                        }}
-                                        style={[styles.chip, selectedFriends.includes(friend.id) && styles.selectedChip]}
-                                        textStyle={styles.chipText}
-                                    >
-                                        {friend.name}
-                                    </Chip>
-                                ))}
+                                <List.Section>
+                                    {friends.map(friend => (
+                                        <List.Item
+                                            key={friend.id}
+                                            title={friend.full_name || friend.email}
+                                            onPress={() => handleFriendSelect(friend)}
+                                            right={props => (
+                                                <Checkbox
+                                                    status={selectedFriends.includes(friend.id) ? 'checked' : 'unchecked'}
+                                                    onPress={() => handleFriendSelect(friend)}
+                                                    color="#42B095"  // Checked color
+                                                    uncheckedColor="#E8F5E9"  // Unchecked color
+                                                />
+                                            )}
+                                            titleStyle={styles.friendName}
+                                        />
+                                    ))}
+                                </List.Section>
                             </View>
                         )}
 
@@ -321,23 +344,29 @@ export const ExpensesScreen = () => {
                             }}
                         />
 
-                        {splitType === 'custom' && (
+                        {splitType === 'custom' && (selectedGroupData?.members || selectedFriends).length > 0 && (
                             <View style={styles.customSplitContainer}>
-                                {(selectedGroup
-                                    ? groups.find(g => g.id === selectedGroup)?.members || []
+                                <Text variant="bodyMedium" style={styles.sectionSubtitle}>Enter custom amounts:</Text>
+                                {(selectedGroupData
+                                    ? selectedGroupData.members
                                     : friends.filter(f => selectedFriends.includes(f.id))
-                                ).map(person => (
+                                ).map(member => (
                                     <TextInput
-                                        key={person.id}
-                                        label={`Amount for ${person.full_name || person.name}`}
-                                        value={customAmounts[person.id]?.toString() || ''}
-                                        onChangeText={(value) => setCustomAmounts({
-                                            ...customAmounts,
-                                            [person.id]: parseFloat(value) || 0
-                                        })}
+                                        key={member.id}
+                                        label={member.full_name || member.email}
+                                        value={customAmounts[member.id] || ''}
+                                        onChangeText={(text) => {
+                                            const regex = /^\d*\.?\d{0,2}$/;
+                                            if (regex.test(text) || text === '') {
+                                                setCustomAmounts({
+                                                    ...customAmounts,
+                                                    [member.id]: text
+                                                });
+                                            }
+                                        }}
                                         mode="outlined"
-                                        style={styles.input}
                                         keyboardType="decimal-pad"
+                                        style={styles.input}
                                         outlineColor="#424242"
                                         activeOutlineColor="#42B095"
                                     />
@@ -388,19 +417,17 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 16,
     },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 20,
-        paddingHorizontal: 16,
-        paddingTop: 8,
+    logoContainer: {
+        alignSelf: 'flex-start',
+        marginTop: 40,
+        marginLeft: 20,
     },
     headerText: {
         color: '#FFFFFF',
         fontSize: 24,
         fontWeight: '600',
         marginBottom: 20,
+        textAlign: 'center',
     },
     expenseCard: {
         marginBottom: 12,
@@ -509,5 +536,15 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    expenseDate: {
+        fontSize: 12,
+        color: '#424242',
+        opacity: 0.6,
+        marginBottom: 4,
+    },
+    friendName: {
+        color: '#424242',
+        fontSize: 16,
     },
 }); 
