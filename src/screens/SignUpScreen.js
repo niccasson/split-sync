@@ -7,6 +7,7 @@ import { LogoIcon } from '../components/LogoIcon';
 
 export const SignUpScreen = ({ navigation }) => {
     const [email, setEmail] = useState('');
+    const [displayName, setDisplayName] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -19,30 +20,76 @@ export const SignUpScreen = ({ navigation }) => {
             setError('');
             setSuccessMessage('');
 
+            // Validate inputs
+            if (!displayName.trim()) {
+                throw new Error('Display name is required');
+            }
+
             if (password !== confirmPassword) {
                 throw new Error('Passwords do not match');
             }
 
-            const { data, error } = await supabase.auth.signUp({
+            console.log('Starting signup process for:', { email, displayName });
+
+            // First create the auth user
+            const { data: authData, error: authError } = await supabase.auth.signUp({
                 email,
                 password,
+                metadata: {
+                    full_name: displayName.trim()
+                }
             });
 
-            if (error) throw error;
+            if (authError) {
+                console.error('Auth signup error:', authError);
+                throw authError;
+            }
 
-            // Check if the signup was successful and email confirmation is required
-            if (data?.user?.identities?.length === 0) {
+            // Check if email is already registered
+            if (authData?.user?.identities?.length === 0) {
                 throw new Error('Email already registered');
             }
 
-            if (data?.user && !data?.session) {
+            // Create the user in public.users table
+            if (authData?.user?.id) {
+                console.log('Creating public user record:', {
+                    id: authData.user.id,
+                    email: authData.user.email,
+                    full_name: displayName.trim()
+                });
+
+                const { error: publicUserError } = await supabase
+                    .from('users')
+                    .insert([{
+                        id: authData.user.id,
+                        email: authData.user.email,
+                        full_name: displayName.trim(),
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    }])
+                    .select()
+                    .single();
+
+                if (publicUserError) {
+                    console.error('Error creating public user:', publicUserError);
+                    throw publicUserError;
+                }
+            }
+
+            // Handle email confirmation message
+            if (!authData.session) {
+                console.log('Email verification required');
                 setSuccessMessage('Verification email has been sent. Please check your inbox.');
                 setEmail('');
+                setDisplayName('');
                 setPassword('');
                 setConfirmPassword('');
+            } else {
+                console.log('User created and signed in successfully');
             }
 
         } catch (error) {
+            console.error('Signup process error:', error);
             setError(error.message);
         } finally {
             setLoading(false);
@@ -60,6 +107,14 @@ export const SignUpScreen = ({ navigation }) => {
             <Surface style={styles.formContainer} elevation={2}>
                 {error ? <Text style={styles.error}>{error}</Text> : null}
                 {successMessage ? <Text style={styles.success}>{successMessage}</Text> : null}
+
+                <FormInput
+                    label="Display Name"
+                    value={displayName}
+                    onChangeText={setDisplayName}
+                    style={styles.input}
+                    activeOutlineColor="#42B095"
+                />
 
                 <FormInput
                     label="Email"

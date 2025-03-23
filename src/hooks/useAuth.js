@@ -7,21 +7,58 @@ export const useAuth = () => {
     const [user, setUser] = useState(null);
     const navigation = useNavigation();
 
+    const createUserProfile = async (userId, email) => {
+        console.log('Attempting to create user profile:', { userId, email });
+        try {
+            const { data, error } = await supabase
+                .from('users')
+                .insert([{ id: userId, email }])
+                .select()
+                .single();
+
+            if (error) {
+                if (error.code === '23505') {
+                    console.log('User profile already exists:', { userId, email });
+                } else {
+                    console.error('Error creating user profile:', { error, userId, email });
+                }
+            } else {
+                console.log('Successfully created user profile:', data);
+            }
+        } catch (err) {
+            console.error('Unexpected error in createUserProfile:', err);
+        }
+    };
+
     useEffect(() => {
         const checkAuth = async () => {
             try {
+                console.log('Checking auth state...');
                 setIsChecking(true);
-                const { data: { session } } = await supabase.auth.getSession();
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                console.log('Got session:', {
+                    hasSession: !!session,
+                    userId: session?.user?.id,
+                    email: session?.user?.email,
+                    error: sessionError
+                });
+
                 setUser(session?.user || null);
 
                 if (session?.user) {
-                    // If we have a user and we're on Home/Login, go to Authenticated
+                    console.log('Found authenticated user:', {
+                        id: session.user.id,
+                        email: session.user.email
+                    });
+                    await createUserProfile(session.user.id, session.user.email);
+
                     const currentRoute = navigation.getCurrentRoute()?.name;
+                    console.log('Current route:', currentRoute);
                     if (currentRoute === 'Home' || currentRoute === 'Login') {
                         navigation.replace('Authenticated');
                     }
                 } else {
-                    // If no user and we're in Authenticated screens, go to Login
+                    console.log('No authenticated user found');
                     const currentRoute = navigation.getCurrentRoute()?.name;
                     if (currentRoute !== 'Home' && currentRoute !== 'Login' && currentRoute !== 'SignUp') {
                         navigation.reset({
@@ -39,8 +76,17 @@ export const useAuth = () => {
 
         checkAuth();
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            if (event === 'SIGNED_OUT' || !session) {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log('Auth state changed:', { event, userId: session?.user?.id });
+
+            if (event === 'SIGNED_IN' && session?.user) {
+                console.log('User signed in, creating profile:', {
+                    id: session.user.id,
+                    email: session.user.email
+                });
+                await createUserProfile(session.user.id, session.user.email);
+            } else if (event === 'SIGNED_OUT' || !session) {
+                console.log('User signed out or session ended');
                 navigation.reset({
                     index: 0,
                     routes: [{ name: 'Login' }],
@@ -49,6 +95,7 @@ export const useAuth = () => {
         });
 
         return () => {
+            console.log('Cleaning up auth subscription');
             if (subscription) subscription.unsubscribe();
         };
     }, [navigation]);

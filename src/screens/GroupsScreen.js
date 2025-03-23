@@ -206,38 +206,35 @@ export const GroupsScreen = () => {
             <Portal>
                 <Modal
                     visible={addMemberModalVisible}
-                    onDismiss={() => {
-                        setAddMemberModalVisible(false);
-                        setSelectedGroup(null);
-                    }}
+                    onDismiss={() => setAddMemberModalVisible(false)}
                     contentContainerStyle={styles.modal}
                 >
                     <Text variant="titleLarge" style={styles.modalTitle}>Add Member</Text>
                     {error ? <Text style={styles.error}>{error}</Text> : null}
-
                     <TextInput
-                        label="Member Email"
+                        label="Email"
                         value={memberEmail}
                         onChangeText={setMemberEmail}
                         mode="outlined"
-                        style={styles.input}
                         keyboardType="email-address"
                         autoCapitalize="none"
+                        style={styles.input}
+                        outlineColor="#424242"
+                        activeOutlineColor="#42B095"
                     />
-
                     <Button
                         mode="contained"
                         onPress={handleAddMember}
                         loading={loading}
                         style={styles.modalButton}
+                        buttonColor="#42B095"
+                        textColor="white"
                     >
                         Add Member
                     </Button>
                     <Button
-                        onPress={() => {
-                            setAddMemberModalVisible(false);
-                            setSelectedGroup(null);
-                        }}
+                        onPress={() => setAddMemberModalVisible(false)}
+                        textColor="#424242"
                     >
                         Cancel
                     </Button>
@@ -323,7 +320,6 @@ const styles = StyleSheet.create({
         padding: 20,
         margin: 20,
         borderRadius: 12,
-        elevation: 2,
     },
     modalTitle: {
         marginBottom: 20,
@@ -337,6 +333,7 @@ const styles = StyleSheet.create({
     },
     modalButton: {
         marginBottom: 12,
+        borderRadius: 8,
     },
     error: {
         color: '#B00020',
