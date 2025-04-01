@@ -1,26 +1,56 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
-import { Text, Card, Button, FAB, TextInput, Portal, Modal, Avatar, Chip } from 'react-native-paper';
+import { Text, Card, Button, FAB, TextInput, Portal, Modal, Avatar, Chip, SegmentedButtons } from 'react-native-paper';
 import { useFriends } from '../hooks/useFriends';
 import { useAuth } from '../hooks/useAuth';
 import { LogoIcon } from '../components/LogoIcon';
+import { supabase } from '../services/supabase';
 
 export const FriendsScreen = () => {
     const { isChecking } = useAuth();
     const [visible, setVisible] = useState(false);
     const [email, setEmail] = useState('');
+    const [manualName, setManualName] = useState('');
     const [modalLoading, setModalLoading] = useState(false);
     const [modalError, setModalError] = useState('');
+    const [addType, setAddType] = useState('existing'); // 'existing' or 'manual'
 
-    const { friends, loading: friendsLoading, error: friendsError, addFriend } = useFriends();
+    const { friends, loading: friendsLoading, error: friendsError, addFriend, refreshFriends } = useFriends();
 
     const handleAddFriend = async () => {
         try {
             setModalLoading(true);
             setModalError('');
-            await addFriend(email);
+
+            if (addType === 'existing') {
+                if (!email.trim()) {
+                    throw new Error('Email is required');
+                }
+                await addFriend(email);
+            } else {
+                if (!manualName.trim()) {
+                    throw new Error('Name is required');
+                }
+
+                // Add manual friend to database
+                const { data: { user } } = await supabase.auth.getUser();
+                const { error: manualFriendError } = await supabase
+                    .from('manual_friends')
+                    .insert([{
+                        user_id: user.id,
+                        name: manualName.trim()
+                    }]);
+
+                if (manualFriendError) {
+                    throw manualFriendError;
+                }
+
+                await refreshFriends();
+            }
+
             setVisible(false);
             setEmail('');
+            setManualName('');
         } catch (error) {
             setModalError(error.message);
         } finally {
@@ -108,17 +138,48 @@ export const FriendsScreen = () => {
                 >
                     <Text variant="titleLarge" style={styles.modalTitle}>Add Friend</Text>
                     {modalError ? <Text style={styles.error}>{modalError}</Text> : null}
-                    <TextInput
-                        label="Email"
-                        value={email}
-                        onChangeText={setEmail}
-                        mode="outlined"
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        style={styles.input}
-                        outlineColor="#424242"
-                        activeOutlineColor="#42B095"
+
+                    <SegmentedButtons
+                        value={addType}
+                        onValueChange={setAddType}
+                        buttons={[
+                            { value: 'existing', label: 'Existing User' },
+                            { value: 'manual', label: 'Manual Entry' }
+                        ]}
+                        style={styles.addTypeButtons}
+                        theme={{
+                            colors: {
+                                secondaryContainer: '#E8F5E9',
+                                onSecondaryContainer: '#424242',
+                                primary: '#42B095',
+                            }
+                        }}
                     />
+
+                    {addType === 'existing' ? (
+                        <TextInput
+                            label="Email"
+                            value={email}
+                            onChangeText={setEmail}
+                            mode="outlined"
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                            style={styles.input}
+                            outlineColor="#424242"
+                            activeOutlineColor="#42B095"
+                        />
+                    ) : (
+                        <TextInput
+                            label="Friend's Name"
+                            value={manualName}
+                            onChangeText={setManualName}
+                            mode="outlined"
+                            style={styles.input}
+                            outlineColor="#424242"
+                            activeOutlineColor="#42B095"
+                        />
+                    )}
+
                     <Button
                         mode="contained"
                         onPress={handleAddFriend}
@@ -243,5 +304,8 @@ const styles = StyleSheet.create({
         color: '#424242',
         opacity: 0.8,
         fontSize: 14,
+    },
+    addTypeButtons: {
+        marginBottom: 20,
     },
 }); 

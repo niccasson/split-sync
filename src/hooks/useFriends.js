@@ -14,64 +14,72 @@ export const useFriends = () => {
 
             if (!user) throw new Error('No user logged in');
 
-            // 1. Get friendships where user is the initiator
+            // 1. Get registered friends from friendships
             const { data: initiatedFriendships, error: initiatedError } = await supabase
                 .from('friendships')
                 .select('friend_id')
                 .eq('user_id', user.id)
                 .eq('status', 'accepted');
 
-            console.log('Initiated friendships:', initiatedFriendships);
             if (initiatedError) throw initiatedError;
 
-            // 2. Get friendships where user is the friend
             const { data: receivedFriendships, error: receivedError } = await supabase
                 .from('friendships')
                 .select('user_id')
                 .eq('friend_id', user.id)
                 .eq('status', 'accepted');
 
-            console.log('Received friendships:', receivedFriendships);
             if (receivedError) throw receivedError;
 
-            // Combine all friend IDs
-            const friendIds = [
+            // 2. Get manual friends
+            const { data: manualFriends, error: manualError } = await supabase
+                .from('manual_friends')
+                .select('*')
+                .eq('user_id', user.id);
+
+            if (manualError) throw manualError;
+
+            // Combine registered friend IDs
+            const registeredFriendIds = [
                 ...(initiatedFriendships || []).map(f => f.friend_id),
                 ...(receivedFriendships || []).map(f => f.user_id)
             ];
-            console.log('Combined friend IDs:', friendIds);
 
-            if (friendIds.length === 0) {
-                console.log('No friends found');
-                setFriends([]);
-                return;
+            // 3. Get registered friend details if there are any
+            let registeredFriends = [];
+            if (registeredFriendIds.length > 0) {
+                const { data: friendsData, error: friendsError } = await supabase
+                    .from('users')
+                    .select('id, email, full_name')
+                    .in('id', registeredFriendIds);
+
+                if (friendsError) throw friendsError;
+                registeredFriends = friendsData.map(friend => ({
+                    ...friend,
+                    isRegistered: true,
+                    isManualFriend: false,
+                    balance: 0
+                }));
             }
 
-            // 3. Get all friend details
-            const { data: friendsData, error: friendsError } = await supabase
-                .from('users')
-                .select('id, email, full_name')
-                .in('id', friendIds);
-
-            console.log('Raw friends data:', friendsData);
-            if (friendsError) throw friendsError;
-
-            // Transform friends data with default balances
-            const transformedFriends = friendsData.map(friend => ({
+            // Transform manual friends
+            const transformedManualFriends = (manualFriends || []).map(friend => ({
                 id: friend.id,
-                full_name: friend.full_name || '',  // Ensure we have a default value
-                email: friend.email,
-                balance: 0,
-                // Add any other fields needed for friend selection
-                name: friend.full_name || friend.email, // Add a display name field
-                selected: false // For selection state in expenses
+                full_name: friend.name,
+                email: null,
+                isRegistered: false,
+                isManualFriend: true,
+                balance: 0
             }));
 
-            console.log('Transformed friends for display:', transformedFriends);
+            // Combine both types of friends
+            const allFriends = [...registeredFriends, ...transformedManualFriends];
 
-            // Calculate balances for each friend
-            for (const friend of transformedFriends) {
+            // Calculate balances for all friends
+            for (const friend of allFriends) {
                 try {
+                    console.log('Calculating balance for friend:', friend);
+
                     const { data: userExpenses, error: userExpError } = await supabase
                         .from('expenses')
                         .select(`
@@ -80,10 +88,14 @@ export const useFriends = () => {
                             expense_shares (
                                 id,
                                 amount,
-                                user_id
+                                registered_user_id,
+                                manual_friend_id,
+                                is_manual_friend
                             )
                         `)
                         .eq('created_by', user.id);
+
+                    console.log('User expenses:', userExpenses);
 
                     if (userExpError) throw userExpError;
 
@@ -95,35 +107,62 @@ export const useFriends = () => {
                             expense_shares (
                                 id,
                                 amount,
-                                user_id
+                                registered_user_id,
+                                manual_friend_id,
+                                is_manual_friend
                             )
                         `)
                         .eq('created_by', friend.id);
 
-                    if (friendExpError) throw friendExpError;
+                    console.log('Friend expenses:', friendExpenses);
 
+                    if (friendExpError && friend.isRegistered) throw friendExpError;
+
+                    // What they owe you
                     const totalOwed = (userExpenses || [])
                         .reduce((sum, expense) => {
                             const friendShare = expense.expense_shares
-                                ?.find(share => share.user_id === friend.id);
-                            return sum + (Number(friendShare?.amount) || 0);
+                                ?.find(share => {
+                                    const matches = (friend.isManualFriend && share.manual_friend_id === friend.id) ||
+                                        (!friend.isManualFriend && share.registered_user_id === friend.id);
+                                    console.log('Checking share:', {
+                                        share,
+                                        friendId: friend.id,
+                                        isManualFriend: friend.isManualFriend,
+                                        matches,
+                                        manual_friend_id: share.manual_friend_id,
+                                        registered_user_id: share.registered_user_id
+                                    });
+                                    return matches;
+                                });
+                            const amount = Number(friendShare?.amount) || 0;
+                            console.log('Found share amount:', amount);
+                            return sum + amount;
                         }, 0);
 
-                    const totalOwes = (friendExpenses || [])
+                    console.log('Total owed:', totalOwed);
+
+                    // What you owe them
+                    const totalOwes = friend.isRegistered ? (friendExpenses || [])
                         .reduce((sum, expense) => {
                             const userShare = expense.expense_shares
-                                ?.find(share => share.user_id === user.id);
-                            return sum + (Number(userShare?.amount) || 0);
-                        }, 0);
+                                ?.find(share => share.registered_user_id === user.id);
+                            const amount = Number(userShare?.amount) || 0;
+                            console.log('Found user share amount:', amount);
+                            return sum + amount;
+                        }, 0) : 0;
+
+                    console.log('Total owes:', totalOwes);
 
                     friend.balance = (totalOwed || 0) - (totalOwes || 0);
+                    console.log('Final balance:', friend.balance);
                 } catch (err) {
+                    console.error('Error calculating balance:', err);
                     friend.balance = 0;
                 }
             }
 
-            console.log('Final friends data with balances:', transformedFriends);
-            setFriends(transformedFriends);
+            setFriends(allFriends);
         } catch (err) {
             console.error('Error in fetchFriends:', err);
             setError(err.message);
