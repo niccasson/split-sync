@@ -14,53 +14,122 @@ export const useGroups = () => {
 
             if (!user) throw new Error('No user logged in');
 
-            // 1. First get the user's group memberships
-            const { data: memberships, error: membershipError } = await supabase
-                .from('group_members')
-                .select('group_id')
-                .eq('user_id', user.id);
+            // 1. Get the user's group memberships
+            const [registeredMemberships, manualFriendsResult] = await Promise.all([
+                // Get groups where user is registered member
+                supabase
+                    .from('group_members')
+                    .select('group_id')
+                    .eq('registered_user_id', user.id),
 
-            if (membershipError) throw membershipError;
+                // First get user's manual friends
+                supabase
+                    .from('manual_friends')
+                    .select('id')
+                    .eq('user_id', user.id)
+            ]);
 
-            if (!memberships || memberships.length === 0) {
+            if (registeredMemberships.error) throw registeredMemberships.error;
+            if (manualFriendsResult.error) throw manualFriendsResult.error;
+
+            // Then get groups containing these manual friends
+            const manualMemberships = manualFriendsResult.data.length > 0
+                ? await supabase
+                    .from('group_members')
+                    .select('group_id')
+                    .in('manual_friend_id', manualFriendsResult.data.map(f => f.id))
+                : { data: [] };
+
+            if (manualMemberships.error) throw manualMemberships.error;
+
+            // Combine and deduplicate group IDs
+            const allGroupIds = [...new Set([
+                ...(registeredMemberships.data || []).map(m => m.group_id),
+                ...(manualMemberships.data || []).map(m => m.group_id)
+            ])];
+
+            if (allGroupIds.length === 0) {
                 console.log('No group memberships found');
                 setGroups([]);
                 return;
             }
 
-            // 2. Then get the group details
-            const groupIds = memberships.map(m => m.group_id);
+            // 2. Get the group details
             const { data: groupsData, error: groupsError } = await supabase
                 .from('groups')
                 .select('id, name, created_by')
-                .in('id', groupIds);
+                .in('id', allGroupIds);
 
             if (groupsError) throw groupsError;
 
-            // 3. Finally get all members for these groups
+            // 3. Get all members for these groups, including manual friends
             const { data: allMembers, error: membersError } = await supabase
                 .from('group_members')
                 .select(`
                     group_id,
-                    user:user_id (
-                        id,
-                        email,
-                        full_name
-                    )
+                    registered_user_id,
+                    manual_friend_id,
+                    is_manual_friend
                 `)
-                .in('group_id', groupIds);
+                .in('group_id', allGroupIds);
 
             if (membersError) throw membersError;
 
-            // Transform the data
+            // 4. Separate registered users and manual friends
+            const registeredUserIds = allMembers
+                .filter(m => !m.is_manual_friend)
+                .map(m => m.registered_user_id)
+                .filter(id => id);
+
+            const manualFriendIds = allMembers
+                .filter(m => m.is_manual_friend)
+                .map(m => m.manual_friend_id)
+                .filter(id => id);
+
+            // 5. Fetch registered users' details
+            const { data: registeredUsers, error: regUsersError } = registeredUserIds.length > 0
+                ? await supabase
+                    .from('users')
+                    .select('id, email, full_name')
+                    .in('id', registeredUserIds)
+                : { data: [], error: null };
+
+            if (regUsersError) throw regUsersError;
+
+            // 6. Fetch manual friends' details
+            const { data: manualFriends, error: manualError } = manualFriendIds.length > 0
+                ? await supabase
+                    .from('manual_friends')
+                    .select('id, name')
+                    .in('id', manualFriendIds)
+                : { data: [], error: null };
+
+            if (manualError) throw manualError;
+
+            // 7. Transform the data
             const transformedGroups = groupsData.map(group => {
                 const groupMembers = allMembers
-                    .filter(m => m.group_id === group.id && m.user)
-                    .map(m => ({
-                        id: m.user.id,
-                        email: m.user.email,
-                        full_name: m.user.full_name
-                    }));
+                    .filter(m => m.group_id === group.id)
+                    .map(m => {
+                        if (m.is_manual_friend) {
+                            const manualFriend = manualFriends.find(f => f.id === m.manual_friend_id);
+                            return {
+                                id: manualFriend?.id,
+                                full_name: manualFriend?.name,
+                                email: null,
+                                isManualFriend: true
+                            };
+                        } else {
+                            const regUser = registeredUsers.find(u => u.id === m.registered_user_id);
+                            return {
+                                id: regUser?.id,
+                                email: regUser?.email,
+                                full_name: regUser?.full_name,
+                                isManualFriend: false
+                            };
+                        }
+                    })
+                    .filter(m => m.id); // Remove any undefined members
 
                 return {
                     id: group.id,
@@ -81,62 +150,109 @@ export const useGroups = () => {
         }
     };
 
-    const createGroup = async (name, memberEmails) => {
+    const createGroup = async (name, members) => {
         try {
             setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
+            console.log('Creating group with members:', members);
 
-            if (!user) throw new Error('No user logged in');
-
-            // Create the group
+            // First create the group
             const { data: groupData, error: groupError } = await supabase
                 .from('groups')
-                .insert([
-                    {
-                        name,
-                        created_by: user.id
-                    }
-                ])
+                .insert([{
+                    name,
+                    created_by: user.id
+                }])
                 .select()
                 .single();
 
             if (groupError) throw groupError;
 
-            // Add creator as a member
+            // Add creator as a member first
             const { error: creatorError } = await supabase
                 .from('group_members')
-                .insert([
-                    {
-                        group_id: groupData.id,
-                        user_id: user.id
-                    }
-                ]);
-
-            if (creatorError) throw creatorError;
-
-            // Find and add other members
-            const { data: users, error: usersError } = await supabase
-                .from('users')
-                .select('id')
-                .in('email', memberEmails);
-
-            if (usersError) throw usersError;
-
-            if (users.length > 0) {
-                const memberInserts = users.map(user => ({
+                .insert([{
                     group_id: groupData.id,
-                    user_id: user.id
-                }));
+                    registered_user_id: user.id,
+                    manual_friend_id: null,
+                    is_manual_friend: false
+                }]);
 
-                const { error: membersError } = await supabase
-                    .from('group_members')
-                    .insert(memberInserts);
+            if (creatorError) {
+                console.error('Error adding creator to group:', creatorError);
+                throw creatorError;
+            }
 
-                if (membersError) throw membersError;
+            // Process each member
+            for (const member of members) {
+                try {
+                    if (member.isRegistered) {
+                        // Add registered user
+                        const { error: memberError } = await supabase
+                            .from('group_members')
+                            .insert([{
+                                group_id: groupData.id,
+                                registered_user_id: member.id,
+                                manual_friend_id: null,
+                                is_manual_friend: false
+                            }]);
+
+                        if (memberError) {
+                            console.error('Error adding registered member:', memberError);
+                        }
+                    } else {
+                        // For manual friends, first ensure they exist in manual_friends table
+                        const { data: existingFriend, error: checkError } = await supabase
+                            .from('manual_friends')
+                            .select('id')
+                            .eq('name', member.full_name)
+                            .eq('user_id', user.id)
+                            .single();
+
+                        if (checkError || !existingFriend) {
+                            // Create new manual friend if doesn't exist
+                            const { data: newFriend, error: createError } = await supabase
+                                .from('manual_friends')
+                                .insert([{
+                                    user_id: user.id,
+                                    name: member.full_name
+                                }])
+                                .select()
+                                .single();
+
+                            if (createError) {
+                                console.error('Error creating manual friend:', createError);
+                                continue;
+                            }
+
+                            member.id = newFriend.id;
+                        } else {
+                            member.id = existingFriend.id;
+                        }
+
+                        // Now add the manual friend to the group
+                        const { error: memberError } = await supabase
+                            .from('group_members')
+                            .insert([{
+                                group_id: groupData.id,
+                                registered_user_id: null,
+                                manual_friend_id: member.id,
+                                is_manual_friend: true
+                            }]);
+
+                        if (memberError) {
+                            console.error('Error adding manual friend to group:', memberError);
+                        }
+                    }
+                } catch (memberErr) {
+                    console.error('Error processing member:', memberErr);
+                    // Continue with next member even if one fails
+                }
             }
 
             await fetchGroups();
         } catch (err) {
+            console.error('Error in createGroup:', err);
             throw err;
         } finally {
             setLoading(false);
@@ -155,12 +271,12 @@ export const useGroups = () => {
 
             const { error } = await supabase
                 .from('group_members')
-                .insert([
-                    {
-                        group_id: groupId,
-                        user_id: user.id
-                    }
-                ]);
+                .insert([{
+                    group_id: groupId,
+                    registered_user_id: user.id,
+                    manual_friend_id: null,
+                    is_manual_friend: false
+                }]);
 
             if (error) throw error;
 
@@ -176,7 +292,7 @@ export const useGroups = () => {
                 .from('group_members')
                 .delete()
                 .eq('group_id', groupId)
-                .eq('user_id', userId);
+                .eq('registered_user_id', userId);
 
             if (error) throw error;
 

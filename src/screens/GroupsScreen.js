@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, Card, Button, FAB, TextInput, Portal, Modal, List, Chip, IconButton, ActivityIndicator } from 'react-native-paper';
+import { Text, Card, Button, FAB, TextInput, Portal, Modal, List, Chip, IconButton, ActivityIndicator, SegmentedButtons } from 'react-native-paper';
 import { useGroups } from '../hooks/useGroups';
 import { useAuth } from '../hooks/useAuth';
 import { LogoIcon } from '../components/LogoIcon';
+import { supabase } from '../services/supabase';
 
 export const GroupsScreen = () => {
     useAuth();
@@ -15,6 +16,9 @@ export const GroupsScreen = () => {
     const [memberEmails, setMemberEmails] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [addType, setAddType] = useState('existing'); // 'existing' or 'manual'
+    const [memberName, setMemberName] = useState('');
+    const [pendingMembers, setPendingMembers] = useState([]); // Track members before group creation
 
     const { groups, loading: groupsLoading, error: groupsError, createGroup, addMember, removeMember, deleteGroup } = useGroups();
 
@@ -24,13 +28,18 @@ export const GroupsScreen = () => {
             return;
         }
 
+        if (pendingMembers.length === 0) {
+            setError('Add at least one member');
+            return;
+        }
+
         try {
             setLoading(true);
             setError('');
-            await createGroup(groupName, memberEmails);
+            await createGroup(groupName, pendingMembers);
             setCreateModalVisible(false);
             setGroupName('');
-            setMemberEmails([]);
+            setPendingMembers([]);
         } catch (error) {
             setError(error.message);
         } finally {
@@ -71,6 +80,57 @@ export const GroupsScreen = () => {
             await deleteGroup(groupId);
         } catch (error) {
             setError(error.message);
+        }
+    };
+
+    const handleAddPendingMember = async () => {
+        try {
+            setLoading(true);
+            setError('');
+
+            if (addType === 'existing') {
+                if (!memberEmail.trim()) {
+                    throw new Error('Email is required');
+                }
+
+                // Check if user exists
+                const { data: userData, error: userError } = await supabase
+                    .from('users')
+                    .select('id, email, full_name')
+                    .eq('email', memberEmail)
+                    .single();
+
+                if (userError || !userData) {
+                    throw new Error('User not found');
+                }
+
+                setPendingMembers([...pendingMembers, {
+                    id: userData.id,
+                    email: userData.email,
+                    full_name: userData.full_name,
+                    isRegistered: true
+                }]);
+            } else {
+                if (!memberName.trim()) {
+                    throw new Error('Name is required');
+                }
+
+                // Create a temporary ID for manual friend
+                const tempId = 'manual_' + Date.now();
+                setPendingMembers([...pendingMembers, {
+                    id: tempId,
+                    full_name: memberName.trim(),
+                    isRegistered: false
+                }]);
+            }
+
+            // Clear inputs
+            setMemberEmail('');
+            setMemberName('');
+        } catch (error) {
+            setError(error.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -145,60 +205,113 @@ export const GroupsScreen = () => {
             <Portal>
                 <Modal
                     visible={createModalVisible}
-                    onDismiss={() => setCreateModalVisible(false)}
+                    onDismiss={() => {
+                        setCreateModalVisible(false);
+                        setGroupName('');
+                        setPendingMembers([]);
+                    }}
                     contentContainerStyle={styles.modal}
                 >
-                    <Text variant="titleLarge" style={styles.modalTitle}>Create Group</Text>
-                    {error ? <Text style={styles.error}>{error}</Text> : null}
+                    <ScrollView>
+                        <Text variant="titleLarge" style={styles.modalTitle}>Create Group</Text>
+                        {error ? <Text style={styles.error}>{error}</Text> : null}
 
-                    <TextInput
-                        label="Group Name"
-                        value={groupName}
-                        onChangeText={setGroupName}
-                        mode="outlined"
-                        style={styles.input}
-                        outlineColor="#424242"
-                        activeOutlineColor="#42B095"
-                    />
+                        <TextInput
+                            label="Group Name"
+                            value={groupName}
+                            onChangeText={setGroupName}
+                            mode="outlined"
+                            style={styles.input}
+                            outlineColor="#424242"
+                            activeOutlineColor="#42B095"
+                        />
 
-                    <TextInput
-                        label="Add Member Email"
-                        value={memberEmail}
-                        onChangeText={setMemberEmail}
-                        mode="outlined"
-                        style={styles.input}
-                        outlineColor="#424242"
-                        activeOutlineColor="#42B095"
-                    />
+                        <SegmentedButtons
+                            value={addType}
+                            onValueChange={setAddType}
+                            buttons={[
+                                { value: 'existing', label: 'Existing User' },
+                                { value: 'manual', label: 'Manual Entry' }
+                            ]}
+                            style={styles.addTypeButtons}
+                            theme={{
+                                colors: {
+                                    secondaryContainer: '#E8F5E9',
+                                    onSecondaryContainer: '#424242',
+                                    primary: '#42B095',
+                                }
+                            }}
+                        />
 
-                    <View style={styles.emailChips}>
-                        {memberEmails.map((email, index) => (
-                            <Chip
-                                key={index}
-                                onClose={() => setMemberEmails(memberEmails.filter((_, i) => i !== index))}
-                                style={styles.chip}
-                            >
-                                {email}
-                            </Chip>
-                        ))}
-                    </View>
+                        {addType === 'existing' ? (
+                            <TextInput
+                                label="Member Email"
+                                value={memberEmail}
+                                onChangeText={setMemberEmail}
+                                mode="outlined"
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                                style={styles.input}
+                                outlineColor="#424242"
+                                activeOutlineColor="#42B095"
+                            />
+                        ) : (
+                            <TextInput
+                                label="Member Name"
+                                value={memberName}
+                                onChangeText={setMemberName}
+                                mode="outlined"
+                                style={styles.input}
+                                outlineColor="#424242"
+                                activeOutlineColor="#42B095"
+                            />
+                        )}
 
-                    <Button
-                        mode="contained"
-                        onPress={handleCreateGroup}
-                        loading={loading}
-                        style={styles.modalButton}
-                        buttonColor="#42B095"
-                        textColor="white"
-                    >
-                        Create Group
-                    </Button>
-                    <Button
-                        onPress={() => setCreateModalVisible(false)}
-                        textColor="#424242"
-                    >
-                        Cancel
-                    </Button>
+                        <Button
+                            mode="outlined"
+                            onPress={handleAddPendingMember}
+                            style={styles.addMemberButton}
+                            textColor="#42B095"
+                        >
+                            Add Member
+                        </Button>
+
+                        {pendingMembers.length > 0 && (
+                            <View style={styles.pendingMembersContainer}>
+                                <Text variant="bodyMedium" style={styles.sectionSubtitle}>Members to add:</Text>
+                                {pendingMembers.map((member) => (
+                                    <Chip
+                                        key={member.id}
+                                        onClose={() => setPendingMembers(pendingMembers.filter(m => m.id !== member.id))}
+                                        style={styles.memberChip}
+                                    >
+                                        {member.full_name} {member.isRegistered ? `(${member.email})` : ''}
+                                    </Chip>
+                                ))}
+                            </View>
+                        )}
+
+                        <Button
+                            mode="contained"
+                            onPress={handleCreateGroup}
+                            loading={loading}
+                            style={styles.modalButton}
+                            buttonColor="#42B095"
+                            textColor="white"
+                        >
+                            Create Group
+                        </Button>
+                        <Button
+                            onPress={() => {
+                                setCreateModalVisible(false);
+                                setGroupName('');
+                                setPendingMembers([]);
+                            }}
+                            textColor="#424242"
+                        >
+                            Cancel
+                        </Button>
+                    </ScrollView>
                 </Modal>
             </Portal>
 
@@ -298,15 +411,14 @@ const styles = StyleSheet.create({
     },
     memberChip: {
         margin: 4,
-        backgroundColor: '#E8F5E9', // Light green background for member chips
+        backgroundColor: '#E8F5E9',
     },
     memberChipText: {
         color: '#424242', // Dark grey text
     },
     addMemberButton: {
-        marginTop: 8,
-        borderColor: '#424242',
-        backgroundColor: '#F5F5F5',
+        marginBottom: 20,
+        borderColor: '#42B095',
     },
     fab: {
         position: 'absolute',
@@ -353,5 +465,17 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    addTypeButtons: {
+        marginBottom: 20,
+    },
+    pendingMembersContainer: {
+        marginBottom: 20,
+    },
+    sectionSubtitle: {
+        color: '#424242',
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 8,
     },
 }); 
