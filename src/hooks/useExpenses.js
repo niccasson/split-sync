@@ -10,7 +10,6 @@ export const useExpenses = () => {
         try {
             setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
-
             if (!user) throw new Error('No user logged in');
 
             // 1. Get expenses created by user
@@ -56,8 +55,6 @@ export const useExpenses = () => {
                 ...(manualShares.data || []).map(e => e.expense_id)
             ])];
 
-            console.log('Expense IDs:', expenseIds);
-
             if (expenseIds.length === 0) {
                 setExpenses([]);
                 return;
@@ -88,16 +85,11 @@ export const useExpenses = () => {
             if (expensesError) throw expensesError;
 
             // Check what's in the expense_shares table
-            console.log('Checking expense_shares table...');
             const { data: checkShares, error: checkError } = await supabase
                 .from('expense_shares')
                 .select('*');
 
-            console.log('All shares in table:', checkShares);
-            console.log('Check error:', checkError);
-
             // Get shares for these expenses
-            console.log('Querying shares for expense IDs:', expenseIds);
             const { data: allShares, error: sharesError } = await supabase
                 .from('expense_shares')
                 .select(`
@@ -119,15 +111,6 @@ export const useExpenses = () => {
                     )
                 `)
                 .in('expense_id', expenseIds);
-
-            // Log the shares we found
-            console.log('Expense shares found:', allShares?.map(share => ({
-                expense_id: share.expense_id,
-                amount: share.amount,
-                is_manual: share.is_manual_friend,
-                reg_user: share.registered_user_id,
-                manual_friend: share.manual_friend_id
-            })));
 
             if (sharesError) {
                 console.error('Error fetching shares:', sharesError);
@@ -175,18 +158,8 @@ export const useExpenses = () => {
             });
 
             setExpenses(transformedExpenses);
-
-            // Add this debug query right after getting expenseIds
-            const testExpenseId = "43b19b74-d70d-404a-a477-7f6a3089d0de";
-            console.log('Testing single expense query...');
-
-            const { data: testShares, error: testError } = await supabase
-                .from('expense_shares')
-                .select('*')  // Get all columns without relationships
-                .eq('expense_id', testExpenseId);
-
-            console.log('Raw test query results:', testShares);
         } catch (err) {
+            console.error('Error in fetchExpenses:', err);
             setError(err.message);
             setExpenses([]);
         } finally {
@@ -198,9 +171,6 @@ export const useExpenses = () => {
         try {
             setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
-            console.log('Creating expense with data:', expenseData);
-            console.log('Shares:', expenseData.shares);
-
             if (!user) throw new Error('No user logged in');
 
             // First check which shares are for manual friends
@@ -230,7 +200,6 @@ export const useExpenses = () => {
 
             // Debug log the shares we're about to create
             const shares = expenseData.shares.map(share => {
-                console.log('Processing share:', share);
                 const isManualFriend = !registeredUserIds.has(share.userId);
 
                 if (isManualFriend) {
@@ -242,7 +211,6 @@ export const useExpenses = () => {
                         amount: share.amount,
                         paid: false
                     };
-                    console.log('Created manual share:', manualShare);
                     return manualShare;
                 } else {
                     const registeredShare = {
@@ -253,12 +221,9 @@ export const useExpenses = () => {
                         amount: share.amount,
                         paid: false
                     };
-                    console.log('Created registered share:', registeredShare);
                     return registeredShare;
                 }
             });
-
-            console.log('Final shares to insert:', shares);
 
             const { error: sharesError } = await supabase
                 .from('expense_shares')
@@ -309,7 +274,52 @@ export const useExpenses = () => {
     };
 
     useEffect(() => {
-        fetchExpenses();
+        let mounted = true;
+        let timeoutId;
+
+        const loadExpenses = async () => {
+            try {
+                if (!mounted) return;
+                await fetchExpenses();
+            } catch (error) {
+                console.error('Error loading expenses:', error);
+            }
+        };
+
+        // Debounced refresh function
+        const debouncedRefresh = () => {
+            if (timeoutId) clearTimeout(timeoutId);
+            timeoutId = setTimeout(loadExpenses, 300);
+        };
+
+        // Single subscription for all relevant tables
+        const subscription = supabase
+            .channel('expenses-channel')
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'expenses'
+            }, debouncedRefresh)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'expense_shares'
+            }, debouncedRefresh)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'groups'
+            }, debouncedRefresh)
+            .subscribe();
+
+        // Initial load
+        loadExpenses();
+
+        return () => {
+            mounted = false;
+            if (timeoutId) clearTimeout(timeoutId);
+            subscription.unsubscribe();
+        };
     }, []);
 
     return {

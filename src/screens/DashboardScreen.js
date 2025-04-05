@@ -1,27 +1,45 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Button, Card, Text, useTheme, FAB } from 'react-native-paper';
 import { useAuth } from '../hooks/useAuth';
 import { useFriends } from '../hooks/useFriends';
 import { useExpenses } from '../hooks/useExpenses';
+import { useGroups } from '../hooks/useGroups';
 import { LogoIcon } from '../components/LogoIcon';
+import { useFocusEffect } from '@react-navigation/native';
 
 export const DashboardScreen = ({ navigation }) => {
     const { isChecking } = useAuth();
-    const { friends, refreshFriends } = useFriends();
-    const { expenses, refreshExpenses } = useExpenses();
+    const { friends, refreshFriends, friendsLoading } = useFriends();
+    const { expenses, refreshExpenses, expensesLoading } = useExpenses();
+    const { groups, refreshGroups, groupsLoading } = useGroups();
     const theme = useTheme();
 
-    // Add navigation listener for focus events
-    useEffect(() => {
-        const unsubscribe = navigation.addListener('focus', () => {
-            refreshFriends();
-            refreshExpenses();
-        });
+    useFocusEffect(
+        useCallback(() => {
+            let isActive = true;
 
-        // Cleanup subscription on unmount
-        return unsubscribe;
-    }, [navigation, refreshFriends, refreshExpenses]);
+            const refreshAll = async () => {
+                try {
+                    if (!isActive) return;
+                    await Promise.all([
+                        refreshExpenses(),
+                        refreshFriends(),
+                        refreshGroups()
+                    ]);
+                } catch (error) {
+                    console.error('Error refreshing dashboard:', error);
+                }
+            };
+
+            refreshAll();
+
+            // Cleanup function
+            return () => {
+                isActive = false;
+            };
+        }, [refreshExpenses, refreshFriends, refreshGroups])
+    );
 
     const balanceSummary = useMemo(() => {
         let totalOwed = 0;
@@ -55,10 +73,10 @@ export const DashboardScreen = ({ navigation }) => {
             }));
     }, [expenses]);
 
-    if (isChecking) {
+    if (isChecking || expensesLoading || friendsLoading || groupsLoading) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" />
+                <ActivityIndicator size="large" color="#42B095" />
             </View>
         );
     }
@@ -159,10 +177,11 @@ export const DashboardScreen = ({ navigation }) => {
             {/* FAB */}
             <FAB
                 icon="plus"
-                label="Add Expense"
                 style={styles.fab}
                 onPress={() => navigation.navigate('ExpensesTab')}
-                color="white"
+                label="Add Expense"
+                color="#42B095"
+                theme={{ colors: { surface: 'white' } }}
             />
         </View>
     );
@@ -259,12 +278,19 @@ const styles = StyleSheet.create({
         margin: 16,
         right: 0,
         bottom: 0,
-        backgroundColor: '#42B095',
+        backgroundColor: 'white',
+        borderColor: '#42B095',
+        borderWidth: 1,
     },
     loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0,
         alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.8)'
     },
     noActivity: {
         textAlign: 'center',

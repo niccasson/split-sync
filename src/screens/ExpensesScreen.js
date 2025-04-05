@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Card, Button, FAB, TextInput, Portal, Modal, Chip, IconButton, ActivityIndicator, SegmentedButtons, List, Avatar, Checkbox } from 'react-native-paper';
 import { useExpenses } from '../hooks/useExpenses';
@@ -6,6 +6,7 @@ import { useGroups } from '../hooks/useGroups';
 import { useFriends } from '../hooks/useFriends';
 import { useAuth } from '../hooks/useAuth';
 import { LogoIcon } from '../components/LogoIcon';
+import { useFocusEffect } from '@react-navigation/native';
 
 export const ExpensesScreen = () => {
     useAuth();
@@ -20,11 +21,17 @@ export const ExpensesScreen = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const { expenses, loading: expensesLoading, error: expensesError, createExpense, markShareAsPaid, deleteExpense } = useExpenses();
-    const { groups } = useGroups();
+    const { expenses, loading: expensesLoading, error: expensesError, createExpense, markShareAsPaid, deleteExpense, refreshExpenses } = useExpenses();
+    const { groups, refreshGroups } = useGroups();
     const { friends } = useFriends();
 
     const selectedGroupData = groups.find(g => g.id === selectedGroup);
+
+    useFocusEffect(
+        useCallback(() => {
+            refreshExpenses();
+        }, [])
+    );
 
     const handleCreateExpense = async () => {
         if (!title.trim() || !amount || amount <= 0) {
@@ -160,10 +167,16 @@ export const ExpensesScreen = () => {
         />
     );
 
+    const handleOpenCreateModal = useCallback(async () => {
+        console.log('Opening create expense modal, refreshing groups...');
+        await refreshGroups();
+        setCreateModalVisible(true);
+    }, [refreshGroups]);
+
     if (expensesLoading) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" />
+                <ActivityIndicator size="large" color="#42B095" />
             </View>
         );
     }
@@ -400,9 +413,10 @@ export const ExpensesScreen = () => {
             <FAB
                 icon="plus"
                 style={styles.fab}
-                onPress={() => setCreateModalVisible(true)}
+                onPress={handleOpenCreateModal}
                 label="Add Expense"
-                color="white"
+                color="#42B095"
+                theme={{ colors: { surface: 'white' } }}
             />
         </View>
     );
@@ -475,7 +489,9 @@ const styles = StyleSheet.create({
         margin: 16,
         right: 0,
         bottom: 0,
-        backgroundColor: '#42B095', // Changed to match container background color
+        backgroundColor: 'white',
+        borderColor: '#42B095',
+        borderWidth: 1,
     },
     modal: {
         backgroundColor: 'white',
@@ -533,9 +549,14 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0,
         alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.8)'
     },
     expenseDate: {
         fontSize: 12,
