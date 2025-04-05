@@ -10,7 +10,6 @@ export const useGroups = () => {
         try {
             setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
-            console.log('Fetching groups for user:', user.id);
 
             if (!user) throw new Error('No user logged in');
 
@@ -49,7 +48,6 @@ export const useGroups = () => {
             ])];
 
             if (allGroupIds.length === 0) {
-                console.log('No group memberships found');
                 setGroups([]);
                 return;
             }
@@ -139,7 +137,6 @@ export const useGroups = () => {
                 };
             });
 
-            console.log('Final transformed groups:', transformedGroups);
             setGroups(transformedGroups);
         } catch (err) {
             console.error('Error in fetchGroups:', err);
@@ -154,7 +151,6 @@ export const useGroups = () => {
         try {
             setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
-            console.log('Creating group with members:', members);
 
             // First create the group
             const { data: groupData, error: groupError } = await supabase
@@ -179,7 +175,6 @@ export const useGroups = () => {
                 }]);
 
             if (creatorError) {
-                console.error('Error adding creator to group:', creatorError);
                 throw creatorError;
             }
 
@@ -198,7 +193,6 @@ export const useGroups = () => {
                             }]);
 
                         if (memberError) {
-                            console.error('Error adding registered member:', memberError);
                         }
                     } else {
                         // For manual friends, first ensure they exist in manual_friends table
@@ -221,7 +215,6 @@ export const useGroups = () => {
                                 .single();
 
                             if (createError) {
-                                console.error('Error creating manual friend:', createError);
                                 continue;
                             }
 
@@ -241,12 +234,9 @@ export const useGroups = () => {
                             }]);
 
                         if (memberError) {
-                            console.error('Error adding manual friend to group:', memberError);
                         }
                     }
                 } catch (memberErr) {
-                    console.error('Error processing member:', memberErr);
-                    // Continue with next member even if one fails
                 }
             }
 
@@ -304,17 +294,26 @@ export const useGroups = () => {
 
     const deleteGroup = async (groupId) => {
         try {
-            console.log('Starting delete operation for group:', groupId);
+            // First delete all expenses in the group
+            const { data: expenseData, error: expenseError } = await supabase
+                .from('expenses')
+                .delete()
+                .eq('group_id', groupId)
+                .select();
 
-            // Delete the group (members will be deleted automatically via CASCADE)
-            const { error } = await supabase
+            if (expenseError) {
+                throw expenseError;
+            }
+
+            // Then delete the group
+            const { data: groupData, error: groupError } = await supabase
                 .from('groups')
                 .delete()
-                .eq('id', groupId);
+                .eq('id', groupId)
+                .select();
 
-            if (error) {
-                console.error('Error deleting group:', error);
-                throw error;
+            if (groupError) {
+                throw groupError;
             }
 
             await fetchGroups();
@@ -325,7 +324,47 @@ export const useGroups = () => {
     };
 
     useEffect(() => {
-        fetchGroups();
+        let mounted = true;
+        let timeoutId;
+
+        const loadGroups = async () => {
+            try {
+                if (!mounted) return;
+                await fetchGroups();
+            } catch (error) {
+                console.error('Error loading groups:', error);
+            }
+        };
+
+        // Debounced refresh function
+        const debouncedRefresh = () => {
+            if (timeoutId) clearTimeout(timeoutId);
+            timeoutId = setTimeout(loadGroups, 300);
+        };
+
+        // Single subscription for all relevant tables
+        const subscription = supabase
+            .channel('groups-channel')
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'groups'
+            }, debouncedRefresh)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'group_members'
+            }, debouncedRefresh)
+            .subscribe();
+
+        // Initial load
+        loadGroups();
+
+        return () => {
+            mounted = false;
+            if (timeoutId) clearTimeout(timeoutId);
+            subscription.unsubscribe();
+        };
     }, []);
 
     return {

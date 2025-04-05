@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Text, Card, Button, FAB, TextInput, Portal, Modal, Avatar, Chip, SegmentedButtons } from 'react-native-paper';
 import { useFriends } from '../hooks/useFriends';
 import { useAuth } from '../hooks/useAuth';
 import { LogoIcon } from '../components/LogoIcon';
 import { supabase } from '../services/supabase';
+import { useFocusEffect } from '@react-navigation/native';
 
 export const FriendsScreen = () => {
     const { isChecking } = useAuth();
@@ -16,6 +17,12 @@ export const FriendsScreen = () => {
     const [addType, setAddType] = useState('existing'); // 'existing' or 'manual'
 
     const { friends, loading: friendsLoading, error: friendsError, addFriend, refreshFriends } = useFriends();
+
+    useFocusEffect(
+        useCallback(() => {
+            refreshFriends();
+        }, [])
+    );
 
     const handleAddFriend = async () => {
         try {
@@ -64,18 +71,10 @@ export const FriendsScreen = () => {
         return '#757575'; // Grey for zero balance
     };
 
-    console.log('FriendsScreen render:', {
-        isChecking,
-        friendsLoading,
-        friendsCount: friends.length,
-        friends
-    });
-
-    if (isChecking || friendsLoading) {
-        console.log('Loading state:', { isChecking, friendsLoading });
+    if (friendsLoading) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" />
+                <ActivityIndicator size="large" color="#42B095" />
             </View>
         );
     }
@@ -94,7 +93,6 @@ export const FriendsScreen = () => {
 
                 {/* Friends List */}
                 {friends.map((friend) => {
-                    console.log('Rendering friend:', friend);
                     return (
                         <Card key={friend.id} style={styles.friendCard}>
                             <Card.Content style={styles.friendContent}>
@@ -205,7 +203,8 @@ export const FriendsScreen = () => {
                 style={styles.fab}
                 onPress={() => setVisible(true)}
                 label="Add Friend"
-                color="white"
+                color="#42B095"
+                theme={{ colors: { surface: 'white' } }}
             />
         </View>
     );
@@ -264,7 +263,9 @@ const styles = StyleSheet.create({
         margin: 16,
         right: 0,
         bottom: 0,
-        backgroundColor: '#42B095',
+        backgroundColor: 'white',
+        borderColor: '#42B095',
+        borderWidth: 1,
     },
     modal: {
         backgroundColor: 'white',

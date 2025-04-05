@@ -10,7 +10,6 @@ export const useFriends = () => {
         try {
             setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
-            console.log('Current user:', user);
 
             if (!user) throw new Error('No user logged in');
 
@@ -78,8 +77,6 @@ export const useFriends = () => {
             // Calculate balances for all friends
             for (const friend of allFriends) {
                 try {
-                    console.log('Calculating balance for friend:', friend);
-
                     const { data: userExpenses, error: userExpError } = await supabase
                         .from('expenses')
                         .select(`
@@ -94,8 +91,6 @@ export const useFriends = () => {
                             )
                         `)
                         .eq('created_by', user.id);
-
-                    console.log('User expenses:', userExpenses);
 
                     if (userExpError) throw userExpError;
 
@@ -114,8 +109,6 @@ export const useFriends = () => {
                         `)
                         .eq('created_by', friend.id);
 
-                    console.log('Friend expenses:', friendExpenses);
-
                     if (friendExpError && friend.isRegistered) throw friendExpError;
 
                     // What they owe you
@@ -125,22 +118,11 @@ export const useFriends = () => {
                                 ?.find(share => {
                                     const matches = (friend.isManualFriend && share.manual_friend_id === friend.id) ||
                                         (!friend.isManualFriend && share.registered_user_id === friend.id);
-                                    console.log('Checking share:', {
-                                        share,
-                                        friendId: friend.id,
-                                        isManualFriend: friend.isManualFriend,
-                                        matches,
-                                        manual_friend_id: share.manual_friend_id,
-                                        registered_user_id: share.registered_user_id
-                                    });
                                     return matches;
                                 });
                             const amount = Number(friendShare?.amount) || 0;
-                            console.log('Found share amount:', amount);
                             return sum + amount;
                         }, 0);
-
-                    console.log('Total owed:', totalOwed);
 
                     // What you owe them
                     const totalOwes = friend.isRegistered ? (friendExpenses || [])
@@ -148,16 +130,11 @@ export const useFriends = () => {
                             const userShare = expense.expense_shares
                                 ?.find(share => share.registered_user_id === user.id);
                             const amount = Number(userShare?.amount) || 0;
-                            console.log('Found user share amount:', amount);
                             return sum + amount;
                         }, 0) : 0;
 
-                    console.log('Total owes:', totalOwes);
-
                     friend.balance = (totalOwed || 0) - (totalOwes || 0);
-                    console.log('Final balance:', friend.balance);
                 } catch (err) {
-                    console.error('Error calculating balance:', err);
                     friend.balance = 0;
                 }
             }
@@ -176,7 +153,6 @@ export const useFriends = () => {
         try {
             setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
-            console.log('Current user trying to add friend:', user);
 
             if (!user) throw new Error('No user logged in');
 
@@ -187,10 +163,7 @@ export const useFriends = () => {
                 .eq('email', email)
                 .single();
 
-            console.log('Found friend:', friendData);
-
             if (friendError || !friendData) {
-                console.error('Friend lookup error:', friendError);
                 throw new Error('User not found');
             }
 
@@ -201,8 +174,6 @@ export const useFriends = () => {
                 .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`)
                 .or(`user_id.eq.${friendData.id},friend_id.eq.${friendData.id}`)
                 .single();
-
-            console.log('Existing friendship check:', existingFriendship);
 
             if (existingFriendship) {
                 throw new Error('Already friends with this user');
@@ -220,11 +191,9 @@ export const useFriends = () => {
                 .single();
 
             if (friendshipError) {
-                console.error('Friendship creation error:', friendshipError);
                 throw friendshipError;
             }
 
-            console.log('Successfully created friendship');
             await fetchFriends();
         } catch (err) {
             console.error('Error in addFriend:', err);
@@ -235,8 +204,52 @@ export const useFriends = () => {
     };
 
     useEffect(() => {
-        console.log('Initial friends fetch...');
-        fetchFriends();
+        let mounted = true;
+        let timeoutId;
+
+        const loadFriends = async () => {
+            try {
+                if (!mounted) return;
+                await fetchFriends();
+            } catch (error) {
+                console.error('Error loading friends:', error);
+            }
+        };
+
+        // Debounced refresh function
+        const debouncedRefresh = () => {
+            if (timeoutId) clearTimeout(timeoutId);
+            timeoutId = setTimeout(loadFriends, 300);
+        };
+
+        // Single subscription for all relevant tables
+        const subscription = supabase
+            .channel('friends-channel')
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'expenses'
+            }, debouncedRefresh)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'expense_shares'
+            }, debouncedRefresh)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'manual_friends'
+            }, debouncedRefresh)
+            .subscribe();
+
+        // Initial load
+        loadFriends();
+
+        return () => {
+            mounted = false;
+            if (timeoutId) clearTimeout(timeoutId);
+            subscription.unsubscribe();
+        };
     }, []);
 
     return {

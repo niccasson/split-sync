@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Card, Button, FAB, TextInput, Portal, Modal, List, Chip, IconButton, ActivityIndicator, SegmentedButtons } from 'react-native-paper';
 import { useGroups } from '../hooks/useGroups';
 import { useAuth } from '../hooks/useAuth';
 import { LogoIcon } from '../components/LogoIcon';
 import { supabase } from '../services/supabase';
+import { useFocusEffect } from '@react-navigation/native';
 
 export const GroupsScreen = () => {
-    useAuth();
     const [createModalVisible, setCreateModalVisible] = useState(false);
     const [addMemberModalVisible, setAddMemberModalVisible] = useState(false);
     const [selectedGroup, setSelectedGroup] = useState(null);
@@ -20,7 +20,13 @@ export const GroupsScreen = () => {
     const [memberName, setMemberName] = useState('');
     const [pendingMembers, setPendingMembers] = useState([]); // Track members before group creation
 
-    const { groups, loading: groupsLoading, error: groupsError, createGroup, addMember, removeMember, deleteGroup } = useGroups();
+    const { groups, loading: groupsLoading, error: groupsError, createGroup, addMember, removeMember, deleteGroup, refreshGroups } = useGroups();
+
+    useFocusEffect(
+        useCallback(() => {
+            refreshGroups();
+        }, [])
+    );
 
     const handleCreateGroup = async () => {
         if (!groupName.trim()) {
@@ -137,7 +143,7 @@ export const GroupsScreen = () => {
     if (groupsLoading) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" />
+                <ActivityIndicator size="large" color="#42B095" />
             </View>
         );
     }
@@ -359,8 +365,9 @@ export const GroupsScreen = () => {
                 icon="plus"
                 style={styles.fab}
                 onPress={() => setCreateModalVisible(true)}
-                label="Create Group"
-                color="white"
+                label="Add Group"
+                color="#42B095"
+                theme={{ colors: { surface: 'white' } }}
             />
         </View>
     );
@@ -425,7 +432,9 @@ const styles = StyleSheet.create({
         margin: 16,
         right: 0,
         bottom: 0,
-        backgroundColor: '#42B095', // Mint green
+        backgroundColor: 'white',
+        borderColor: '#42B095',
+        borderWidth: 1,
     },
     modal: {
         backgroundColor: 'white',
@@ -462,9 +471,14 @@ const styles = StyleSheet.create({
         backgroundColor: '#E8F5E9',
     },
     loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0,
         alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.8)'
     },
     addTypeButtons: {
         marginBottom: 20,
