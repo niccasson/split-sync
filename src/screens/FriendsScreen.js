@@ -18,13 +18,24 @@ export const FriendsScreen = () => {
 
     const { friends, loading: friendsLoading, error: friendsError, addFriend, refreshFriends } = useFriends();
 
+    console.log('FriendsScreen render', {
+        isChecking,
+        friendsLoading,
+        friendsCount: friends.length,
+        visible,
+        modalLoading
+    });
+
     useFocusEffect(
         useCallback(() => {
+            console.log('FriendsScreen focus effect triggered');
             refreshFriends();
+            return () => console.log('FriendsScreen focus effect cleanup');
         }, [])
     );
 
     const handleAddFriend = async () => {
+        console.log('FriendsScreen handleAddFriend started', { addType, email, manualName });
         try {
             setModalLoading(true);
             setModalError('');
@@ -59,10 +70,12 @@ export const FriendsScreen = () => {
             setEmail('');
             setManualName('');
         } catch (error) {
+            console.error('FriendsScreen handleAddFriend error:', error);
             setModalError(error.message);
         } finally {
             setModalLoading(false);
         }
+        console.log('FriendsScreen handleAddFriend complete');
     };
 
     const getBalanceColor = (balance) => {
@@ -82,10 +95,12 @@ export const FriendsScreen = () => {
     return (
         <View style={styles.container}>
             <ScrollView style={styles.scrollView}>
-                <View style={styles.logoContainer}>
-                    <LogoIcon />
+                <View style={styles.header}>
+                    <View style={styles.logoContainer}>
+                        <LogoIcon />
+                    </View>
+                    <Text variant="headlineMedium" style={styles.headerText}>Friends</Text>
                 </View>
-                <Text variant="headlineMedium" style={styles.headerText}>Friends</Text>
 
                 {friendsError ? (
                     <Text style={styles.error}>{friendsError}</Text>
@@ -219,17 +234,23 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 16,
     },
-    logoContainer: {
-        alignSelf: 'flex-start',
+    header: {
+        position: 'relative',
+        alignItems: 'center',
         marginTop: 40,
-        marginLeft: 20,
+        marginBottom: 32,
+        paddingHorizontal: 20,
+    },
+    logoContainer: {
+        position: 'absolute',
+        left: 20,
+        top: 0,
     },
     headerText: {
         color: '#FFFFFF',
         fontSize: 24,
         fontWeight: '600',
-        marginBottom: 20,
-        textAlign: 'center',
+        marginTop: 8,
     },
     title: {
         color: '#FFFFFF',

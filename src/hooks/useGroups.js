@@ -323,6 +323,66 @@ export const useGroups = () => {
         }
     };
 
+    const refreshGroups = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            console.time('fetchGroups');
+
+            const { data: { user } } = await supabase.auth.getUser();
+            console.timeLog('fetchGroups', 'Got user');
+
+            // Fetch groups where user is owner
+            const { data: ownedGroups, error: ownedError } = await supabase
+                .from('groups')
+                .select(`
+                    id,
+                    name,
+                    owner_id,
+                    members:group_members(
+                        id,
+                        user:user_id(id, email, full_name),
+                        manual_friend:manual_friend_id(id, name),
+                        is_manual_friend
+                    )
+                `)
+                .eq('owner_id', user.id);
+            console.timeLog('fetchGroups', 'Got owned groups');
+
+            // Fetch groups where user is a member
+            const { data: memberGroups, error: memberError } = await supabase
+                .from('group_members')
+                .select(`
+                    group:group_id(
+                        id,
+                        name,
+                        owner_id,
+                        members:group_members(
+                            id,
+                            user:user_id(id, email, full_name),
+                            manual_friend:manual_friend_id(id, name),
+                            is_manual_friend
+                        )
+                    )
+                `)
+                .eq('user_id', user.id);
+            console.timeLog('fetchGroups', 'Got member groups');
+
+            if (ownedError) throw ownedError;
+            if (memberError) throw memberError;
+
+            const processedGroups = processGroups(ownedGroups, memberGroups, user.id);
+            console.timeEnd('fetchGroups');
+
+            setGroups(processedGroups);
+        } catch (error) {
+            console.error('Error in refreshGroups:', error);
+            setError(error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         let mounted = true;
         let timeoutId;

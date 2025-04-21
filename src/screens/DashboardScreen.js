@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useCallback } from 'react';
+import React, { useMemo, useEffect, useCallback, useState } from 'react';
 import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Button, Card, Text, useTheme, FAB } from 'react-native-paper';
 import { useAuth } from '../hooks/useAuth';
@@ -10,35 +10,46 @@ import { useFocusEffect } from '@react-navigation/native';
 
 export const DashboardScreen = ({ navigation }) => {
     const { isChecking } = useAuth();
-    const { friends, refreshFriends, friendsLoading } = useFriends();
-    const { expenses, refreshExpenses, expensesLoading } = useExpenses();
-    const { groups, refreshGroups, groupsLoading } = useGroups();
+    const { friends, refreshFriends, loading: friendsLoading } = useFriends();
+    const { expenses, refreshExpenses, loading: expensesLoading } = useExpenses();
+    const { groups, refreshGroups, loading: groupsLoading } = useGroups();
     const theme = useTheme();
+
+    // Add state to track initial load
+    const [hasLoaded, setHasLoaded] = useState(false);
+
+    console.log('DashboardScreen render', {
+        isChecking,
+        friendsLoading,
+        expensesLoading,
+        groupsLoading,
+        friendsCount: friends.length,
+        expensesCount: expenses.length,
+        groupsCount: groups.length
+    });
 
     useFocusEffect(
         useCallback(() => {
-            let isActive = true;
+            console.log('DashboardScreen focus effect triggered');
 
-            const refreshAll = async () => {
-                try {
-                    if (!isActive) return;
+            // Only refresh if we haven't loaded yet
+            if (!hasLoaded) {
+                const loadData = async () => {
+                    console.log('DashboardScreen starting refresh');
                     await Promise.all([
                         refreshExpenses(),
                         refreshFriends(),
                         refreshGroups()
                     ]);
-                } catch (error) {
-                    console.error('Error refreshing dashboard:', error);
-                }
-            };
+                    setHasLoaded(true);
+                };
+                loadData();
+            }
 
-            refreshAll();
-
-            // Cleanup function
             return () => {
-                isActive = false;
+                console.log('DashboardScreen focus effect cleanup');
             };
-        }, [refreshExpenses, refreshFriends, refreshGroups])
+        }, [hasLoaded]) // Add hasLoaded to dependencies
     );
 
     const balanceSummary = useMemo(() => {
@@ -84,10 +95,12 @@ export const DashboardScreen = ({ navigation }) => {
     return (
         <View style={styles.container}>
             <ScrollView style={styles.scrollView}>
-                <View style={styles.logoContainer}>
-                    <LogoIcon />
+                <View style={styles.header}>
+                    <View style={styles.logoContainer}>
+                        <LogoIcon />
+                    </View>
+                    <Text variant="headlineMedium" style={styles.headerText}>Dashboard</Text>
                 </View>
-                <Text variant="headlineMedium" style={styles.headerText}>Dashboard</Text>
 
                 {/* Balance Summary */}
                 <Card style={styles.balanceCard}>
@@ -196,17 +209,23 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 16,
     },
-    logoContainer: {
-        alignSelf: 'flex-start',
+    header: {
+        position: 'relative',
+        alignItems: 'center',
         marginTop: 40,
-        marginLeft: 20,
+        marginBottom: 32,
+        paddingHorizontal: 20,
+    },
+    logoContainer: {
+        position: 'absolute',
+        left: 20,
+        top: 0,
     },
     headerText: {
         color: '#FFFFFF',
         fontSize: 24,
         fontWeight: '600',
-        marginBottom: 20,
-        textAlign: 'center',
+        marginTop: 8,
     },
     cardTitle: {
         color: '#424242',

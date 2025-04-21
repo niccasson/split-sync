@@ -98,11 +98,12 @@ export const SignUpScreen = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
-            <View style={styles.logoContainer}>
-                <LogoIcon />
+            <View style={styles.header}>
+                <View style={styles.logoContainer}>
+                    <LogoIcon />
+                </View>
+                <Text variant="headlineMedium" style={styles.headerText}>Create Account</Text>
             </View>
-
-            <Text variant="headlineMedium" style={styles.title}>Create Account</Text>
 
             <Surface style={styles.formContainer} elevation={2}>
                 {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -171,16 +172,23 @@ const styles = StyleSheet.create({
         padding: 20,
         backgroundColor: '#42B095',
     },
-    logoContainer: {
-        alignSelf: 'flex-start',
+    header: {
+        position: 'relative',
+        alignItems: 'center',
         marginTop: 40,
-        marginLeft: 20,
+        marginBottom: 32,
+        paddingHorizontal: 20,
     },
-    title: {
-        textAlign: 'center',
-        marginBottom: 20,
+    logoContainer: {
+        position: 'absolute',
+        left: 20,
+        top: 0,
+    },
+    headerText: {
         color: '#FFFFFF',
+        fontSize: 24,
         fontWeight: '600',
+        marginTop: 8,
     },
     input: {
         marginBottom: 12,

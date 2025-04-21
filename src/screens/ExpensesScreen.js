@@ -25,15 +25,31 @@ export const ExpensesScreen = () => {
     const { groups, refreshGroups } = useGroups();
     const { friends } = useFriends();
 
+    console.log('ExpensesScreen render', {
+        expensesLoading,
+        expensesCount: expenses.length,
+        createModalVisible,
+        loading
+    });
+
     const selectedGroupData = groups.find(g => g.id === selectedGroup);
 
     useFocusEffect(
         useCallback(() => {
+            console.log('ExpensesScreen focus effect triggered');
             refreshExpenses();
+            return () => console.log('ExpensesScreen focus effect cleanup');
         }, [])
     );
 
     const handleCreateExpense = async () => {
+        console.log('ExpensesScreen handleCreateExpense started', {
+            title,
+            amount,
+            selectedGroup,
+            selectedFriendsCount: selectedFriends.length,
+            splitType
+        });
         if (!title.trim() || !amount || amount <= 0) {
             setError('Title and valid amount are required');
             return;
@@ -105,10 +121,12 @@ export const ExpensesScreen = () => {
             setCreateModalVisible(false);
             resetForm();
         } catch (error) {
+            console.error('ExpensesScreen handleCreateExpense error:', error);
             setError(error.message);
         } finally {
             setLoading(false);
         }
+        console.log('ExpensesScreen handleCreateExpense complete');
     };
 
     const resetForm = () => {
@@ -184,10 +202,12 @@ export const ExpensesScreen = () => {
     return (
         <View style={styles.container}>
             <ScrollView style={styles.scrollView}>
-                <View style={styles.logoContainer}>
-                    <LogoIcon />
+                <View style={styles.header}>
+                    <View style={styles.logoContainer}>
+                        <LogoIcon />
+                    </View>
+                    <Text variant="headlineMedium" style={styles.headerText}>Expenses</Text>
                 </View>
-                <Text variant="headlineMedium" style={styles.headerText}>Expenses</Text>
 
                 {expensesError ? (
                     <Text style={styles.error}>{expensesError}</Text>
@@ -431,17 +451,23 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 16,
     },
-    logoContainer: {
-        alignSelf: 'flex-start',
+    header: {
+        position: 'relative',
+        alignItems: 'center',
         marginTop: 40,
-        marginLeft: 20,
+        marginBottom: 32,
+        paddingHorizontal: 20,
+    },
+    logoContainer: {
+        position: 'absolute',
+        left: 20,
+        top: 0,
     },
     headerText: {
         color: '#FFFFFF',
         fontSize: 24,
         fontWeight: '600',
-        marginBottom: 20,
-        textAlign: 'center',
+        marginTop: 8,
     },
     expenseCard: {
         marginBottom: 12,
