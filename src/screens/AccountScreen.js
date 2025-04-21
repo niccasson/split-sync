@@ -1,56 +1,51 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text, Button, Card } from 'react-native-paper';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { Text, Surface, Button } from 'react-native-paper';
 import { supabase } from '../services/supabase';
-import { useNavigation } from '@react-navigation/native';
-import { useAuth } from '../hooks/useAuth';
 import { LogoIcon } from '../components/LogoIcon';
 
-export const AccountScreen = () => {
-    const navigation = useNavigation();
-    const { user } = useAuth();
+export const AccountScreen = ({ navigation }) => {
+    const [userEmail, setUserEmail] = useState(null);
+
+    useEffect(() => {
+        const getUserEmail = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                setUserEmail(user.email);
+            }
+        };
+
+        getUserEmail();
+    }, []);
 
     const handleSignOut = async () => {
-        try {
-            const { error } = await supabase.auth.signOut();
-            if (error) throw error;
-
-            let nav = navigation;
-            while (nav.getParent()) {
-                nav = nav.getParent();
-            }
-            nav.reset({
-                index: 0,
-                routes: [{ name: 'Login' }],
-            });
-        } catch (err) {
-            // Silent error handling
-        }
+        await supabase.auth.signOut();
     };
 
     return (
         <View style={styles.container}>
-            <View style={styles.logoContainer}>
-                <LogoIcon />
-            </View>
-            <Text variant="headlineMedium" style={styles.headerText}>Account</Text>
+            <ScrollView style={styles.scrollView}>
+                <View style={styles.header}>
+                    <View style={styles.logoContainer}>
+                        <LogoIcon />
+                    </View>
+                    <Text variant="headlineMedium" style={styles.headerText}>Account</Text>
+                </View>
 
-            <Card style={styles.card}>
-                <Card.Content style={styles.cardContent}>
-                    <Text variant="titleMedium" style={styles.emailText}>
-                        {user?.email}
-                    </Text>
+                <Surface style={styles.card} elevation={2}>
+                    <Text variant="titleMedium" style={styles.label}>Email</Text>
+                    <Text style={styles.email}>{userEmail}</Text>
                     <Button
                         mode="contained"
                         onPress={handleSignOut}
                         style={styles.button}
-                        contentStyle={styles.buttonContent}
-                        labelStyle={styles.buttonLabel}
+                        buttonColor="#42B095"
+                        textColor="white"
                     >
                         Sign Out
                     </Button>
-                </Card.Content>
-            </Card>
+                </Surface>
+            </ScrollView>
         </View>
     );
 };
@@ -60,43 +55,51 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#42B095',
     },
-    logoContainer: {
-        alignSelf: 'flex-start',
+    scrollView: {
+        flex: 1,
+        padding: 16,
+    },
+    header: {
+        position: 'relative',
+        alignItems: 'center',
         marginTop: 40,
-        marginLeft: 20,
+        marginBottom: 32,
+        paddingHorizontal: 20,
+    },
+    logoContainer: {
+        position: 'absolute',
+        left: 20,
+        top: 0,
     },
     headerText: {
         color: '#FFFFFF',
         fontSize: 24,
         fontWeight: '600',
-        marginBottom: 20,
-        textAlign: 'center',
+        marginTop: 8,
     },
     card: {
-        marginHorizontal: 16,
-        backgroundColor: '#FFFFFF',
-        elevation: 2,
+        backgroundColor: 'white',
+        padding: 24,
+        margin: 20,
         borderRadius: 12,
     },
-    cardContent: {
-        padding: 16,
+    label: {
+        color: '#424242',
+        textAlign: 'center',
+        marginBottom: 16,
+        fontSize: 16,
+        marginTop: 8,
+    },
+    email: {
+        color: '#424242',
+        textAlign: 'center',
+        marginBottom: 24,
+        fontSize: 16,
     },
     button: {
         marginVertical: 8,
         backgroundColor: '#757575',
         borderRadius: 8,
         width: '100%',
-    },
-    buttonContent: {
-        height: 48,
-    },
-    buttonLabel: {
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    emailText: {
-        color: '#424242',
-        textAlign: 'center',
-        marginBottom: 16,
     },
 }); 

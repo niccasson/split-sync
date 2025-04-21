@@ -273,6 +273,74 @@ export const useExpenses = () => {
         }
     };
 
+    const refreshExpenses = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            console.time('fetchExpenses');
+
+            const { data: { user } } = await supabase.auth.getUser();
+            console.timeLog('fetchExpenses', 'Got user');
+
+            // Fetch expenses created by user
+            const { data: createdExpenses, error: createdError } = await supabase
+                .from('expenses')
+                .select(`
+                    id,
+                    title,
+                    description,
+                    total_amount,
+                    created_at,
+                    group:group_id(id, name),
+                    shares:expense_shares(
+                        id,
+                        amount,
+                        is_paid,
+                        user:user_id(id, email, full_name),
+                        manual_friend:manual_friend_id(id, name)
+                    )
+                `)
+                .eq('creator_id', user.id);
+            console.timeLog('fetchExpenses', 'Got created expenses');
+
+            // Fetch expenses shared with user
+            const { data: sharedExpenses, error: sharedError } = await supabase
+                .from('expense_shares')
+                .select(`
+                    expense:expense_id(
+                        id,
+                        title,
+                        description,
+                        total_amount,
+                        created_at,
+                        group:group_id(id, name),
+                        shares:expense_shares(
+                            id,
+                            amount,
+                            is_paid,
+                            user:user_id(id, email, full_name),
+                            manual_friend:manual_friend_id(id, name)
+                        )
+                    )
+                `)
+                .eq('user_id', user.id);
+            console.timeLog('fetchExpenses', 'Got shared expenses');
+
+            if (createdError) throw createdError;
+            if (sharedError) throw sharedError;
+
+            const processedExpenses = processExpenses(createdExpenses, sharedExpenses);
+            console.timeEnd('fetchExpenses');
+
+            setExpenses(processedExpenses);
+        } catch (error) {
+            console.error('Error in refreshExpenses:', error);
+            setError(error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         let mounted = true;
         let timeoutId;

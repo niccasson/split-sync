@@ -19,16 +19,32 @@ export const GroupsScreen = () => {
     const [addType, setAddType] = useState('existing'); // 'existing' or 'manual'
     const [memberName, setMemberName] = useState('');
     const [pendingMembers, setPendingMembers] = useState([]); // Track members before group creation
+    const [addMemberType, setAddMemberType] = useState('existing'); // 'existing' or 'manual'
 
     const { groups, loading: groupsLoading, error: groupsError, createGroup, addMember, removeMember, deleteGroup, refreshGroups } = useGroups();
 
+    // Move console.log after variables are declared
+    console.log('GroupsScreen render', {
+        groupsLoading,
+        groupsCount: groups.length,
+        createModalVisible,
+        addMemberModalVisible,
+        loading
+    });
+
     useFocusEffect(
         useCallback(() => {
+            console.log('GroupsScreen focus effect triggered');
             refreshGroups();
+            return () => console.log('GroupsScreen focus effect cleanup');
         }, [])
     );
 
     const handleCreateGroup = async () => {
+        console.log('GroupsScreen handleCreateGroup started', {
+            groupName,
+            pendingMembersCount: pendingMembers.length
+        });
         if (!groupName.trim()) {
             setError('Group name is required');
             return;
@@ -47,25 +63,76 @@ export const GroupsScreen = () => {
             setGroupName('');
             setPendingMembers([]);
         } catch (error) {
+            console.error('GroupsScreen handleCreateGroup error:', error);
             setError(error.message);
         } finally {
             setLoading(false);
         }
+        console.log('GroupsScreen handleCreateGroup complete');
     };
 
     const handleAddMember = async () => {
-        if (!memberEmail.trim()) {
-            setError('Email is required');
-            return;
-        }
-
         try {
             setLoading(true);
             setError('');
-            await addMember(selectedGroup.id, memberEmail);
+
+            if (addMemberType === 'existing') {
+                if (!memberEmail.trim()) {
+                    throw new Error('Email is required');
+                }
+                await addMember(selectedGroup.id, memberEmail);
+            } else {
+                if (!memberName.trim()) {
+                    throw new Error('Name is required');
+                }
+
+                const { data: { user } } = await supabase.auth.getUser();
+
+                // First check if manual friend already exists for this user
+                const { data: existingFriend, error: checkError } = await supabase
+                    .from('manual_friends')
+                    .select('id')
+                    .eq('user_id', user.id)
+                    .eq('name', memberName.trim())
+                    .single();
+
+                let manualFriendId;
+
+                if (existingFriend) {
+                    // Use existing manual friend
+                    manualFriendId = existingFriend.id;
+                } else {
+                    // Create new manual friend
+                    const { data: newFriend, error: createError } = await supabase
+                        .from('manual_friends')
+                        .insert([{
+                            user_id: user.id,
+                            name: memberName.trim()
+                        }])
+                        .select()
+                        .single();
+
+                    if (createError) throw createError;
+                    manualFriendId = newFriend.id;
+                }
+
+                // Add manual friend to group
+                const { error: memberError } = await supabase
+                    .from('group_members')
+                    .insert([{
+                        group_id: selectedGroup.id,
+                        manual_friend_id: manualFriendId,
+                        is_manual_friend: true
+                    }]);
+
+                if (memberError) throw memberError;
+            }
+
             setAddMemberModalVisible(false);
             setMemberEmail('');
+            setMemberName('');
             setSelectedGroup(null);
+            await refreshGroups();
         } catch (error) {
             setError(error.message);
         } finally {
@@ -151,10 +218,12 @@ export const GroupsScreen = () => {
     return (
         <View style={styles.container}>
             <ScrollView style={styles.scrollView}>
-                <View style={styles.logoContainer}>
-                    <LogoIcon />
+                <View style={styles.header}>
+                    <View style={styles.logoContainer}>
+                        <LogoIcon />
+                    </View>
+                    <Text variant="headlineMedium" style={styles.headerText}>Groups</Text>
                 </View>
-                <Text variant="headlineMedium" style={styles.headerText}>Groups</Text>
 
                 {groupsError ? (
                     <Text style={styles.error}>{groupsError}</Text>
@@ -330,17 +399,47 @@ export const GroupsScreen = () => {
                 >
                     <Text variant="titleLarge" style={styles.modalTitle}>Add Member</Text>
                     {error ? <Text style={styles.error}>{error}</Text> : null}
-                    <TextInput
-                        label="Email"
-                        value={memberEmail}
-                        onChangeText={setMemberEmail}
-                        mode="outlined"
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        style={styles.input}
-                        outlineColor="#424242"
-                        activeOutlineColor="#42B095"
+
+                    <SegmentedButtons
+                        value={addMemberType}
+                        onValueChange={setAddMemberType}
+                        buttons={[
+                            { value: 'existing', label: 'Registered' },
+                            { value: 'manual', label: 'Manual' }
+                        ]}
+                        style={styles.addTypeButtons}
+                        theme={{
+                            colors: {
+                                secondaryContainer: '#E8F5E9',  // Light green background for selected
+                                onSecondaryContainer: '#42B095', // Mint green text for selected
+                            }
+                        }}
                     />
+
+                    {addMemberType === 'existing' ? (
+                        <TextInput
+                            label="Email"
+                            value={memberEmail}
+                            onChangeText={setMemberEmail}
+                            mode="outlined"
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                            style={styles.input}
+                            outlineColor="#424242"
+                            activeOutlineColor="#42B095"
+                        />
+                    ) : (
+                        <TextInput
+                            label="Name"
+                            value={memberName}
+                            onChangeText={setMemberName}
+                            mode="outlined"
+                            style={styles.input}
+                            outlineColor="#424242"
+                            activeOutlineColor="#42B095"
+                        />
+                    )}
+
                     <Button
                         mode="contained"
                         onPress={handleAddMember}
@@ -352,7 +451,12 @@ export const GroupsScreen = () => {
                         Add Member
                     </Button>
                     <Button
-                        onPress={() => setAddMemberModalVisible(false)}
+                        onPress={() => {
+                            setAddMemberModalVisible(false);
+                            setMemberEmail('');
+                            setMemberName('');
+                            setError('');
+                        }}
                         textColor="#424242"
                     >
                         Cancel
@@ -382,17 +486,23 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 16,
     },
-    logoContainer: {
-        alignSelf: 'flex-start',
+    header: {
+        position: 'relative',
+        alignItems: 'center',
         marginTop: 40,
-        marginLeft: 20,
+        marginBottom: 32,
+        paddingHorizontal: 20,
+    },
+    logoContainer: {
+        position: 'absolute',
+        left: 20,
+        top: 0,
     },
     headerText: {
         color: '#FFFFFF',
         fontSize: 24,
         fontWeight: '600',
-        marginBottom: 20,
-        textAlign: 'center',
+        marginTop: 8,
     },
     groupCard: {
         marginBottom: 12,

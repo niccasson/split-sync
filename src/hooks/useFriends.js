@@ -203,6 +203,52 @@ export const useFriends = () => {
         }
     };
 
+    const refreshFriends = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            console.time('fetchFriends');
+
+            const { data: { user } } = await supabase.auth.getUser();
+            console.timeLog('fetchFriends', 'Got user');
+
+            // Fetch registered friends
+            const { data: registeredFriends, error: registeredError } = await supabase
+                .from('friends')
+                .select(`
+                    id,
+                    friend:friend_id(id, email, full_name),
+                    balance
+                `)
+                .eq('user_id', user.id);
+            console.timeLog('fetchFriends', 'Got registered friends');
+
+            // Fetch manual friends
+            const { data: manualFriends, error: manualError } = await supabase
+                .from('manual_friends')
+                .select('id, name, balance')
+                .eq('user_id', user.id);
+            console.timeLog('fetchFriends', 'Got manual friends');
+
+            if (registeredError) throw registeredError;
+            if (manualError) throw manualError;
+
+            // Process and combine friends
+            const processedFriends = [
+                ...processRegisteredFriends(registeredFriends),
+                ...processManualFriends(manualFriends)
+            ];
+            console.timeEnd('fetchFriends');
+
+            setFriends(processedFriends);
+        } catch (error) {
+            console.error('Error in refreshFriends:', error);
+            setError(error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         let mounted = true;
         let timeoutId;
