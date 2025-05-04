@@ -2,6 +2,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTheme } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { withProtectedRoute } from '../components/ProtectedRoute';
 
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { FriendsScreen } from '../screens/FriendsScreen';
@@ -11,7 +12,7 @@ import { AccountScreen } from '../screens/AccountScreen';
 
 const Tab = createBottomTabNavigator();
 
-export const AuthenticatedNavigator = () => {
+const AuthenticatedNavigatorComponent = () => {
     const theme = useTheme();
 
     return (
@@ -79,4 +80,6 @@ export const AuthenticatedNavigator = () => {
             />
         </Tab.Navigator>
     );
-}; 
+};
+
+export const AuthenticatedNavigator = withProtectedRoute(AuthenticatedNavigatorComponent); 
